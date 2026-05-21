@@ -1,0 +1,2 @@
+# Copy to .dev.vars (gitignored) for local `wrangler pages dev`.
+AHOLO_API_KEY=your_key_here

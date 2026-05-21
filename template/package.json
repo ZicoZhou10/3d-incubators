@@ -1,0 +1,27 @@
+{
+  "name": "@3d-incubators/template",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Starter for a new 3D Incubators demo. Copied by `pnpm new-demo <slug>`.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler pages dev -- vite",
+    "dev:web": "vite",
+    "build": "vite build",
+    "preview": "wrangler pages dev ./dist",
+    "deploy": "wrangler pages deploy ./dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@3d-incubators/aholo-client": "workspace:*",
+    "@3d-incubators/viewer-helpers": "workspace:*",
+    "@manycore/aholo-viewer": "1.0.0-alpha.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240620.0",
+    "typescript": "^5.7.0",
+    "vite": "^5.4.0",
+    "wrangler": "^3.78.0"
+  }
+}

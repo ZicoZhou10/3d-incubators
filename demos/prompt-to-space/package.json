@@ -1,0 +1,27 @@
+{
+  "name": "@3d-incubators/demo-prompt-to-space",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A sentence or photo becomes a walkable 3D world, sharable as a URL",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler pages dev -- vite",
+    "dev:web": "vite",
+    "build": "vite build",
+    "preview": "wrangler pages dev ./dist",
+    "deploy": "wrangler pages deploy ./dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@3d-incubators/aholo-client": "workspace:*",
+    "@3d-incubators/viewer-helpers": "workspace:*",
+    "@manycore/aholo-viewer": "1.0.0-alpha.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240620.0",
+    "typescript": "^5.7.0",
+    "vite": "^5.4.0",
+    "wrangler": "^3.78.0"
+  }
+}

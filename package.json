@@ -1,0 +1,20 @@
+{
+  "name": "3d-incubators",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Lighthouse demos that show what spatial intelligence + agents can build together.",
+  "license": "MIT",
+  "author": "Zico Zhou",
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r --filter=./packages/* build",
+    "typecheck": "pnpm -r typecheck",
+    "new-demo": "node scripts/new-demo.mjs",
+    "demo:dev": "pnpm --filter=./demos/* dev",
+    "lint:imports": "node scripts/check-imports.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@11.1.3"
+}

@@ -1,0 +1,10 @@
+name = "incubators-prompt-to-space"
+compatibility_date = "2026-01-01"
+pages_build_output_dir = "./dist"
+
+# Set AHOLO_API_KEY in Cloudflare dashboard or via:
+#   wrangler pages secret put AHOLO_API_KEY --project-name <project>
+# Locally, copy .env.example → .dev.vars and put your key there.
+
+[vars]
+AHOLO_BASE_URL = "https://api.aholo3d.com"

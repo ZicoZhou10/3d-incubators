@@ -1,0 +1,16 @@
+packages:
+  - 'packages/*'
+  - 'template'
+  - 'demos/*'
+
+allowBuilds:
+  esbuild: true
+  sharp: true
+  workerd: true
+
+# pnpm 11 blocks postinstall scripts unless explicitly allowed (supply-chain safety).
+# These three are first-party tooling we trust:
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
+  - workerd

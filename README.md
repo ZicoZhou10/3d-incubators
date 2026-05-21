@@ -1,0 +1,54 @@
+# 3D Incubators
+
+> Small, sharp lighthouse demos that show what **spatial intelligence APIs + coding agents** can build together.
+
+## What this is
+
+A mono-repo of single-purpose 3D micro-apps. Each one points at exactly one new pattern unlocked by combining:
+
+- **Aholo Spatial APIs** — 3D Gaussian Splatting (World), single-asset gen (Lux3D), OpenUSD cloud rendering (RenderCloud)
+- **Coding agents** — Claude Code / Cursor / Devin as primary collaborators, not afterthoughts
+- **Open-source rendering** — `@manycore/aholo-viewer` for in-browser playback
+
+**What this is not:** a product, a SaaS, a competitor to Aholo Studio. See [`DECISION_PRINCIPLES.md`](./DECISION_PRINCIPLES.md) §9.
+
+## Demos
+
+| # | Demo | Pattern unlocked | Status |
+|---|------|------------------|--------|
+| 01 | [Prompt-to-Space](./demos/prompt-to-space) | A sentence/photo → a walkable 3DGS world, sharable as a URL | 🟡 code complete, awaiting first real-world run |
+
+## How to build a new demo
+
+```bash
+pnpm install
+pnpm new-demo my-thing
+cd demos/my-thing
+pnpm dev
+```
+
+The scaffolder copies `template/` → `demos/<slug>/`, wires `aholo-client` and `viewer-helpers`, and lands you on a working hello-world that renders a sample splat. From there it's your fork.
+
+## Repo shape
+
+```
+3d-incubators/
+├── DECISION_PRINCIPLES.md      ← read before contributing
+├── packages/
+│   ├── aholo-client/           ← typed REST client for Aholo APIs
+│   └── viewer-helpers/         ← thin @manycore/aholo-viewer wrappers
+├── template/                   ← starter that `new-demo` clones from
+├── demos/                      ← one folder per micro-app
+└── scripts/
+    └── new-demo.mjs
+```
+
+## Operating constraints
+
+- No commercialization concerns until a demo earns its way past a quarterly review.
+- Public-by-default — repos, notes, decisions.
+- Coding agents are first-class teammates. If they can't drive it, the docs have a bug.
+
+## License
+
+MIT. Use what you find. Tell us if you build something.

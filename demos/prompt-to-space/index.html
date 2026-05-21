@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Prompt-to-Space · 3D Incubators</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <main id="app">
+      <header class="bar">
+        <h1>Prompt-to-Space</h1>
+        <p class="sub">A sentence or a photo becomes a walkable 3D world, sharable as a URL.</p>
+      </header>
+      <section id="controls" class="panel"></section>
+      <section id="status" class="panel status" aria-live="polite"></section>
+      <section id="stage" class="stage" aria-label="3D viewport"></section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
