@@ -36,6 +36,9 @@ Studio is the commercial product. We are the lighthouse incubator. If a proposal
 ## 10. Errors are Curriculum
 Every shipping cycle produces a list of "what surprised us." That list updates this file. Principles that survive 3 cycles become permanent; principles that get bypassed twice get retired.
 
+## 11. Friction in the template costs N×
+Anything that wasted 2 minutes building Demo 1 will waste 2N minutes building Demo N. When a friction point surfaces in a demo, **fix it upstream first** — in `template/`, in `scripts/new-demo.mjs`, in `packages/*`, or in the SDK contract — and only then in the current demo. Discovered while bootstrapping (`tsconfig.json` relative path, esbuild target, top-level await).
+
 ---
 
 ## Operating Cadence

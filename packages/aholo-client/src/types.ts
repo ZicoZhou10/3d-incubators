@@ -61,11 +61,16 @@ export interface WorldDetail {
   status: WorldStatus;
   scene?: string;
   taskQuality?: TaskQuality;
+  /** Server-generated display name derived from the prompt (e.g. "Nordic Sunlit Nook"). */
+  name?: string;
+  /** Cover thumbnail URL. Null until the job succeeds. */
+  cover?: string | null;
   /** Unix milliseconds. */
   createTime?: number;
   /** Unix milliseconds. */
   updateTime?: number;
-  assets?: WorldAssets;
+  /** Null while pending; populated on success. */
+  assets?: WorldAssets | null;
   error?: ApiError;
 }
 
