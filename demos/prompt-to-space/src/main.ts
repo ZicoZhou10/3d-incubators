@@ -57,7 +57,7 @@ function enterCreateMode(): void {
       </div>
     </form>
   `;
-  setStatus('Ready. Describe a space, or attach a photo. Generation usually takes 2–4 minutes.');
+  setStatus('Ready. Describe a space, or attach a photo. Generation typically takes 5–10 minutes — feel free to keep the tab open and come back.');
 
   const form = el('form') as HTMLFormElement;
   const submitBtn = el('submit') as HTMLButtonElement;

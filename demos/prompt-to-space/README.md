@@ -91,4 +91,17 @@ wrangler pages secret put AHOLO_API_KEY --project-name incubators-prompt-to-spac
 
 ### First real API call
 
-(Pending — see `scripts/verify-world-gen.mjs` output.)
+Two concurrent generations were submitted against `https://api.aholo3d.com` on 2026-05-21 to probe:
+
+| What | Result |
+|---|---|
+| Submit (`POST /global/world/v1/generations`) | ✅ 200 in ~1 s, returns `{ worldId: "3FO4K4UOT…" }` |
+| Status poll (`GET /global/world/v1/{worldId}`) | ✅ 200, returns `{ worldId, name, cover, scene, status, ... }` |
+| Status sequence observed | `PENDING` → `RUNNING` (after 5–10 s queue) |
+| Server-generated `name` from prompt | `"Nordic Sunlit Haven"`, `"Nordic Sunlit Nook"` — surprisingly thoughtful |
+| Time to terminal status | **> 8 min and still RUNNING at session close** — docs and folklore both say "2–4 min" but reality is closer to 5–15 min |
+
+**Implications for the demo UX:**
+- The "2–4 min" hint we put in the form was misleading; updated to "5–10 min, leave the tab open."
+- The polling cadence (initial 4 s, max 20 s, backoff 1.4) is good for the first minute but wastes requests once we're in RUNNING. A future revision could detect "stuck in RUNNING" and cap the poll interval at 30 s.
+- Demo-1 readiness for the public is gated on: **a single happy-path generation reaches SUCCEEDED and renders in the viewer**. Until that's observed once, the demo stays at 🟡 in the root README.
