@@ -68,7 +68,7 @@ export function mountViewer(container: HTMLElement, opts: MountOptions = {}): Mo
   camera.lookAt(new Vector3(target[0], target[1], target[2]));
 
   let started = false;
-  const renderer = (viewer as unknown as { render: () => void; frame: (cb: (t: { delta: number }) => void) => void });
+  let rafId = 0;
 
   return {
     viewer,
@@ -76,11 +76,22 @@ export function mountViewer(container: HTMLElement, opts: MountOptions = {}): Mo
     start() {
       if (started) return;
       started = true;
-      renderer.render();
+      // The Aholo Viewer has no built-in animation loop — `Viewer.render()`
+      // draws exactly one frame. Drive a requestAnimationFrame loop so that
+      // assets added after `start()` (async glTF/splat loads) and every
+      // camera/orbit change actually reach the screen. Rendering only once
+      // here would leave the canvas frozen on its first (empty) frame.
+      const loop = (): void => {
+        if (!started) return;
+        viewer.render();
+        rafId = requestAnimationFrame(loop);
+      };
+      loop();
     },
     dispose() {
       // Aholo Viewer's Application owns disposal; signal via setViewerConfig if needed.
       started = false;
+      if (rafId) cancelAnimationFrame(rafId);
     },
   };
 }
@@ -144,6 +155,12 @@ export interface GltfHandle {
  * `loadSplatFromUrl`, which is for World 3DGS output. Lux3D returns a ZIP;
  * point this at the `.glb` inside it (or a direct .glb/.gltf URL).
  *
+ * After `scene.add()` of a pre-built subtree the engine does not always pick
+ * up the descendant meshes — `notifySceneChange()` forces the scene graph to
+ * refresh so the meshes enter the draw list. (A splat is a single leaf, so
+ * `loadSplatFromUrl` does not need this.) This mirrors the walk-demo example
+ * in @manycore/aholo-viewer, which is the authoritative glTF usage.
+ *
  * Same CORS caveat as `loadSplatFromUrl`: the URL must be CORS-reachable.
  */
 export async function loadGltfFromUrl(
@@ -160,13 +177,21 @@ export async function loadGltfFromUrl(
   // loadGLTF needs a textureLoader; the viewer ships `downloadTexture` for exactly this.
   const result = await GLTFLoader.loadGLTF(buf, { textureLoader: downloadTexture });
   view.scene.add(result.scene);
+  notifySceneChange(view.scene);
 
   return {
     scene: result.scene,
     remove: () => {
       view.scene.remove(result.scene);
+      notifySceneChange(view.scene);
       const disposable = result.scene as unknown as { destroy?: () => void };
       disposable.destroy?.();
     },
   };
+}
+
+/** Force the scene graph to refresh — see loadGltfFromUrl for why. */
+function notifySceneChange(scene: MountedViewer['scene']): void {
+  const fn = (scene as unknown as { notifySceneChange?: () => void }).notifySceneChange;
+  if (typeof fn === 'function') fn.call(scene);
 }

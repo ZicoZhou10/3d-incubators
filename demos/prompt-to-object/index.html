@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Prompt → Object · 3D Incubators</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <main id="app">
+      <header class="bar">
+        <h1>Prompt&nbsp;→&nbsp;Object</h1>
+        <p class="sub">
+          Describe an object, see it in 3D. Each model here was generated from a
+          text prompt by an AI agent driving the Aholo MCP server.
+        </p>
+      </header>
+      <section class="notice" role="note">
+        ⚠ <strong>Known issue:</strong> the 3D viewport renders blank —
+        <code>@manycore/aholo-viewer</code> issues zero draw calls for imported
+        glTF meshes. The generate → download → bundle pipeline and this UI are
+        complete; rendering is pending a viewer fix. See <code>KNOWN_ISSUE.md</code>.
+      </section>
+      <section id="controls" class="panel"></section>
+      <section id="status" class="panel status" aria-live="polite"></section>
+      <section id="stage" class="stage" aria-label="3D viewport"></section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
