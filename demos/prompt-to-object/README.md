@@ -1,9 +1,8 @@
 # Prompt To Object
 
-> An AI agent turns a sentence into a 3D object you can spin in your browser.
+> An AI agent turns a sentence into a single 3D object, rendered in the browser.
 
-Type or pick an object description, and a single 3D mesh appears in a viewer you
-can orbit with the mouse.
+Pick an object description and its 3D mesh appears in the viewer.
 
 ## How the 3D is made — and why there's no backend
 
@@ -17,22 +16,12 @@ That shapes the demo:
 - **Generation is agent-driven.** An AI agent (Claude Code) ran the Aholo MCP
   server, generated the objects below, and bundled the resulting GLB meshes
   into `public/models/`.
-- **This page is the viewer half.** It loads a bundled GLB and lets you orbit
-  it. There is no `/api/*` backend — the template's edge-proxy scaffolding was
-  removed because there is no runtime API call to proxy.
+- **This page is the viewer half.** It loads a bundled GLB and renders it. There
+  is no `/api/*` backend — the template's edge-proxy scaffolding was removed
+  because there is no runtime API call to proxy.
 
 The agent generates; the human inspects. That split is the honest shape of an
 MCP-only pipeline.
-
-## ⚠ Known issue — viewport renders blank
-
-The MCP generation pipeline and this UI are complete and verified, but the 3D
-viewport currently renders blank: `@manycore/aholo-viewer` issues zero draw
-calls for imported glTF meshes. The model loads into the scene correctly; the
-engine just never draws it. Full diagnosis, what was ruled out, the diagnostic
-harness, and the leading hypothesis are in [`KNOWN_ISSUE.md`](./KNOWN_ISSUE.md).
-Tracked as a separate viewer bug — the demo code is the correct implementation
-and should light up once that bug is fixed.
 
 ## What's in the box
 
@@ -42,7 +31,7 @@ and should light up once that bug is fixed.
 | `src/main.ts` | Mounts the viewer, lights the scene, loads a GLB on demand |
 | `src/styles.css` | Dark theme + prompt-chip styling |
 | `public/models/*.glb` | Agent-generated meshes, one per prompt in `main.ts` |
-| `KNOWN_ISSUE.md` | The open viewer-rendering bug — diagnosis + handoff notes |
+| `RENDER_BUG_POSTMORTEM.md` | A render bug we shipped, misdiagnosed, then fixed — kept as curriculum |
 
 ## Run it
 
@@ -51,7 +40,8 @@ pnpm install                 # at the repo root, once
 pnpm --filter @3d-incubators/demo-prompt-to-object dev
 ```
 
-Open <http://localhost:5173>. Drag to orbit, scroll to zoom.
+Then open the printed local URL. The model renders on load; mouse-orbit controls
+are not wired up yet (a follow-up — see `viewer-helpers`).
 
 ## Add another object
 

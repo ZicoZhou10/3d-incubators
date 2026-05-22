@@ -142,7 +142,7 @@ async function loadModel(item: ObjectPrompt): Promise<void> {
     if (import.meta.env.DEV) debugDump(handle.scene);
     current?.remove();
     current = handle;
-    setStatus(`Loaded "${item.label}" — glTF mesh ready (see the notice above).`, 'ok');
+    setStatus(`Loaded "${item.label}".`, 'ok');
   } catch (err) {
     if (token !== loadToken) return;
     setStatus(`Could not load "${item.label}": ${(err as Error).message}`, 'err');

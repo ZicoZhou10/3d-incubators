@@ -20,6 +20,8 @@ import {
   SplatLoader,
   GLTFLoader,
   downloadTexture,
+  Scene3D,
+  PerspectiveCamera,
   Vector3,
   type Viewer,
 } from '@manycore/aholo-viewer';
@@ -37,20 +39,44 @@ export interface MountOptions {
   pixelRatio?: number;
 }
 
+export interface FrameState {
+  /** High-res timestamp (ms). */
+  time: number;
+  /** Seconds since the previous frame, clamped to 0.1. */
+  delta: number;
+}
+
 export interface MountedViewer {
   /** Underlying Aholo Viewer instance. */
   viewer: Viewer;
   /** The scene graph root — add/remove objects here. */
-  scene: ReturnType<Viewer['getScene']>;
+  scene: Scene3D;
+  /** The active perspective camera. */
+  camera: PerspectiveCamera;
   /** Start the render loop. Idempotent. */
   start: () => void;
-  /** Stop the render loop and tear down. */
+  /** Register a per-frame callback (e.g. to spin a model). */
+  frame: (cb: (state: FrameState) => void) => void;
+  /** Stop the render loop. */
   dispose: () => void;
 }
 
+/**
+ * Mount an Aholo viewer into a container.
+ *
+ * This mirrors the construction sequence of the viewer's own website driver
+ * (`RenderSessionRenderer` in `@manycore/aholo-viewer`'s website source): it
+ * installs a fresh `Scene3D` and `PerspectiveCamera` via `setScene`/`setCamera`,
+ * sizes the engine canvas to the container, and calls `viewer.resize()`.
+ *
+ * An earlier hand-rolled version relied on `viewer.getScene()`/`getCamera()`
+ * defaults and never called `resize()` — with that, the sky background drew but
+ * scene-graph content (meshes, and likely splats) never appeared. The viewer
+ * SDK is fine; reproducing the proven setup sequence is what was missing.
+ */
 export function mountViewer(container: HTMLElement, opts: MountOptions = {}): MountedViewer {
   const name = `viewer-${Math.random().toString(36).slice(2, 8)}`;
-  const viewer = createViewer(name, container, {});
+  const viewer = createViewer(name, container, { antialiasing: false });
 
   setViewerConfig(viewer, {
     pixelRatio: opts.pixelRatio,
@@ -59,41 +85,78 @@ export function mountViewer(container: HTMLElement, opts: MountOptions = {}): Mo
     },
   });
 
-  const camera = viewer.getCamera();
+  // Install our own scene + camera. createViewer's defaults are not reliably
+  // the active render target; the viewer's own driver always does this.
+  const scene = new Scene3D();
+  const camera = new PerspectiveCamera(60, 1, 0.1, 2000);
+  viewer.setScene(scene);
+  viewer.setCamera(camera);
+
+  // Make the engine canvas fill the container — otherwise it can mount at a
+  // size that renders nothing visible.
+  const canvas = viewer.canvasContainer?.querySelector('canvas');
+  if (canvas instanceof HTMLCanvasElement) {
+    canvas.style.display = 'block';
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+  }
+
   const pos = opts.cameraPosition ?? [-1.5, -0.5, 0];
   camera.position.set(pos[0], pos[1], pos[2]);
   const up = opts.cameraUp ?? [0, -1, 0];
   camera.up.set(up[0], up[1], up[2]);
   const target = opts.cameraTarget ?? [0, 0, 0];
   camera.lookAt(new Vector3(target[0], target[1], target[2]));
+  syncCameraAspect(viewer, camera);
 
+  const frameCallbacks: Array<(state: FrameState) => void> = [];
   let started = false;
   let rafId = 0;
+  let lastTime = 0;
+
+  const tick = (time: number): void => {
+    if (!started) return;
+    const delta = lastTime > 0 ? Math.min((time - lastTime) / 1000, 0.1) : 0;
+    lastTime = time;
+    for (const cb of frameCallbacks) cb({ time, delta });
+    viewer.render();
+    rafId = requestAnimationFrame(tick);
+  };
 
   return {
     viewer,
-    scene: viewer.getScene(),
+    scene,
+    camera,
     start() {
       if (started) return;
       started = true;
-      // The Aholo Viewer has no built-in animation loop — `Viewer.render()`
-      // draws exactly one frame. Drive a requestAnimationFrame loop so that
-      // assets added after `start()` (async glTF/splat loads) and every
-      // camera/orbit change actually reach the screen. Rendering only once
-      // here would leave the canvas frozen on its first (empty) frame.
-      const loop = (): void => {
-        if (!started) return;
-        viewer.render();
-        rafId = requestAnimationFrame(loop);
-      };
-      loop();
+      // resize() measures the container and sizes the render target + buffers.
+      viewer.resize();
+      syncCameraAspect(viewer, camera);
+      rafId = requestAnimationFrame(tick);
+    },
+    frame(cb) {
+      frameCallbacks.push(cb);
     },
     dispose() {
-      // Aholo Viewer's Application owns disposal; signal via setViewerConfig if needed.
       started = false;
       if (rafId) cancelAnimationFrame(rafId);
     },
   };
+}
+
+/** Keep the camera's aspect ratio in sync with the viewer's pixel size. */
+function syncCameraAspect(viewer: Viewer, camera: PerspectiveCamera): void {
+  const size = viewer.getSize() as { width: number; height: number };
+  const aspect = size.width > 0 && size.height > 0 ? size.width / size.height : 1;
+  const cam = camera as PerspectiveCamera & {
+    aspect?: number;
+    updateProjectionMatrix?: () => void;
+  };
+  if (Number.isFinite(aspect) && typeof cam.aspect === 'number' && Math.abs(cam.aspect - aspect) > 0.001) {
+    cam.aspect = aspect;
+    cam.updateProjectionMatrix?.();
+  }
 }
 
 export interface SplatHandle {
