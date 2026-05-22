@@ -1,13 +1,14 @@
 /**
  * Sensible-defaults helpers on top of `@manycore/aholo-viewer`.
  *
- * Goal: render a remote splat URL in 3 lines from a fresh checkout.
+ * Goal: render a remote 3D asset in 3 lines from a fresh checkout.
  *
  * ```ts
- * import { mountViewer, loadSplatFromUrl } from '@3d-incubators/viewer-helpers';
+ * import { mountViewer, loadSplatFromUrl, loadGltfFromUrl } from '@3d-incubators/viewer-helpers';
  *
  * const view = mountViewer(document.getElementById('stage')!);
- * await loadSplatFromUrl(view, 'https://.../scene.spz');
+ * await loadSplatFromUrl(view, 'https://.../scene.spz');  // World 3DGS output
+ * await loadGltfFromUrl(view, 'https://.../model.glb');   // Lux3D mesh output
  * view.start();
  * ```
  */
@@ -17,6 +18,8 @@ import {
   setViewerConfig,
   SplatUtils,
   SplatLoader,
+  GLTFLoader,
+  downloadTexture,
   Vector3,
   type Viewer,
 } from '@manycore/aholo-viewer';
@@ -123,6 +126,46 @@ export async function loadSplatFromUrl(
       view.scene.remove(splat);
       // SplatUtils.createSplat returns a disposable; respect it if available
       const disposable = splat as unknown as { destroy?: () => void };
+      disposable.destroy?.();
+    },
+  };
+}
+
+export interface GltfHandle {
+  /** The root Object3D of the loaded glTF scene. */
+  scene: Awaited<ReturnType<typeof GLTFLoader.loadGLTF>>['scene'];
+  remove: () => void;
+}
+
+/**
+ * Load a glTF/GLB model from a URL and add it to the scene.
+ *
+ * Use this for Lux3D output (a single mesh + PBR textures) — as opposed to
+ * `loadSplatFromUrl`, which is for World 3DGS output. Lux3D returns a ZIP;
+ * point this at the `.glb` inside it (or a direct .glb/.gltf URL).
+ *
+ * Same CORS caveat as `loadSplatFromUrl`: the URL must be CORS-reachable.
+ */
+export async function loadGltfFromUrl(
+  view: MountedViewer,
+  url: string,
+  signal?: AbortSignal
+): Promise<GltfHandle> {
+  const res = await fetch(url, { signal });
+  if (!res.ok) {
+    throw new Error(`glTF fetch failed: ${res.status} ${res.statusText} (${url})`);
+  }
+  const buf = await res.arrayBuffer();
+
+  // loadGLTF needs a textureLoader; the viewer ships `downloadTexture` for exactly this.
+  const result = await GLTFLoader.loadGLTF(buf, { textureLoader: downloadTexture });
+  view.scene.add(result.scene);
+
+  return {
+    scene: result.scene,
+    remove: () => {
+      view.scene.remove(result.scene);
+      const disposable = result.scene as unknown as { destroy?: () => void };
       disposable.destroy?.();
     },
   };
