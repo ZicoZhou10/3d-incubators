@@ -39,6 +39,9 @@ Every shipping cycle produces a list of "what surprised us." That list updates t
 ## 11. Friction in the template costs N×
 Anything that wasted 2 minutes building Demo 1 will waste 2N minutes building Demo N. When a friction point surfaces in a demo, **fix it upstream first** — in `template/`, in `scripts/new-demo.mjs`, in `packages/*`, or in the SDK contract — and only then in the current demo. Discovered while bootstrapping (`tsconfig.json` relative path, esbuild target, top-level await).
 
+## 12. Verify against the artifact, not a proxy metric
+"Did it render?" is answered by looking at the pixels — a screenshot — not by reading a stats counter. A proxy metric is a hypothesis about reality, not reality. Before blaming a dependency, reproduce it working in isolation (its own example/playground). Discovered the hard way: a blank-viewport bug was misdiagnosed for days by trusting `renderInfo.calls === 0`, and nearly escalated to another team — it was our own code. See `demos/prompt-to-object/RENDER_BUG_POSTMORTEM.md`.
+
 ---
 
 ## Operating Cadence
