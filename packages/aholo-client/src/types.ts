@@ -93,6 +93,11 @@ export interface Lux3DTaskDetail {
   /** ZIP archive URL with GLB + PBR textures. Valid ~2h. */
   result?: { url?: string };
   error?: ApiError;
+  /**
+   * The raw payload the gateway returned (envelope already peeled). Carried so
+   * an agent can read undocumented/terse field shapes the typed parse missed.
+   */
+  raw?: unknown;
 }
 
 export interface AssetUploadToken {

@@ -168,16 +168,26 @@ function submitted(taskid: string, pollTool: string): ToolResult {
 
 function formatLux3D(detail: Lux3DTaskDetail): ToolResult {
   const status = (detail.status ?? '').toUpperCase();
+  // The Lux3D gateway is terse and undocumented — always echo the raw payload
+  // so an agent can read fields the typed parse may have missed.
+  const rawLine =
+    detail.raw !== undefined ? `\n\nRaw gateway payload: ${JSON.stringify(detail.raw)}` : '';
   if (status === 'SUCCEEDED' && detail.result?.url) {
     return {
-      structuredContent: { taskid: detail.taskid, status, resultUrl: detail.result.url },
+      structuredContent: {
+        taskid: detail.taskid,
+        status,
+        resultUrl: detail.result.url,
+        raw: detail.raw,
+      },
       content: [
         {
           type: 'text',
           text:
             `SUCCEEDED.\n\nResult ZIP (GLB + PBR textures): ${detail.result.url}\n\n` +
             `This URL expires in ~2 hours — download it now if you need to keep it. ` +
-            `The GLB inside can be loaded with @manycore/aholo-viewer's GLTFLoader.`,
+            `The GLB inside can be loaded with @manycore/aholo-viewer's GLTFLoader.` +
+            rawLine,
         },
       ],
     };
@@ -185,20 +195,29 @@ function formatLux3D(detail: Lux3DTaskDetail): ToolResult {
   if (status === 'FAILED' || status === 'CANCELLED') {
     return {
       isError: true,
-      structuredContent: { taskid: detail.taskid, status, error: detail.error ?? null },
+      structuredContent: {
+        taskid: detail.taskid,
+        status,
+        error: detail.error ?? null,
+        raw: detail.raw,
+      },
       content: [
-        { type: 'text', text: `${status}. ${detail.error?.message ?? 'No error message.'}` },
+        {
+          type: 'text',
+          text: `${status}. ${detail.error?.message ?? 'No error message.'}` + rawLine,
+        },
       ],
     };
   }
   return {
-    structuredContent: { taskid: detail.taskid, status: status || 'UNKNOWN' },
+    structuredContent: { taskid: detail.taskid, status: status || 'UNKNOWN', raw: detail.raw },
     content: [
       {
         type: 'text',
         text:
           `${status || 'IN PROGRESS'}. Not done yet — wait 10-15s and call ` +
-          `aholo_get_model again with taskid ${detail.taskid}.`,
+          `aholo_get_model again with taskid ${detail.taskid}.` +
+          rawLine,
       },
     ],
   };
