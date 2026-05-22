@@ -42,6 +42,7 @@ only scene-graph meshes are skipped.
 | Subtree nodes never registered with `Scene3D` | walked subtree, called `scene.onNodeAdd()` per node | no effect — reverted (see below) |
 | Engine "may not notify every change" | called `Scene3D.notifySceneChange()` after `scene.add()` (the documented refresh hook, and what the walk-demo example does) | **no effect — still 0 calls.** Verified on a fresh `vite --force` server. |
 | `componentMap` from `ParseResult` ignored | searched the entire `@manycore/aholo-viewer` repo | **hypothesis dropped:** `componentMap` is referenced *nowhere* in the SDK — not in `gltf-loader.ts`, not in the walk-demo. It is an unused field. |
+| Bug is specific to Lux3D-encoded GLBs | loaded Khronos official `Box.glb` (canonical static glTF, never touched Lux3D or the MCP) through the same path | **disproved — still `calls: 0`.** The bug hits *any* static glTF, including Khronos's reference Box. Not a Lux3D problem, not an MCP problem. |
 
 ## Refined finding (2026-05-22)
 
