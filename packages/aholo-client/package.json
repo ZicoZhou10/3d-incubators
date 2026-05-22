@@ -5,17 +5,17 @@
   "description": "Typed REST client for Aholo Open Platform APIs (World / Lux3D / RenderCloud / Asset).",
   "license": "MIT",
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./world": "./src/world.ts",
-    "./lux3d": "./src/lux3d.ts",
-    "./rendercloud": "./src/rendercloud.ts",
-    "./asset": "./src/asset.ts",
-    "./types": "./src/types.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "node": "./dist/index.js",
+      "default": "./src/index.ts"
+    }
   },
   "scripts": {
+    "build": "tsc",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

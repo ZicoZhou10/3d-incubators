@@ -36,7 +36,8 @@ The scaffolder copies `template/` → `demos/<slug>/`, wires `aholo-client` and 
 ├── DECISION_PRINCIPLES.md      ← read before contributing
 ├── packages/
 │   ├── aholo-client/           ← typed REST client for Aholo APIs
-│   └── viewer-helpers/         ← thin @manycore/aholo-viewer wrappers
+│   ├── viewer-helpers/         ← thin @manycore/aholo-viewer wrappers
+│   └── aholo-mcp/              ← MCP server: drive Aholo from any agent
 ├── template/                   ← starter that `new-demo` clones from
 ├── demos/                      ← one folder per micro-app
 └── scripts/

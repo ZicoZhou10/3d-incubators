@@ -1,0 +1,28 @@
+{
+  "name": "@3d-incubators/aholo-mcp",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Model Context Protocol server for the Aholo Spatial APIs — lets any MCP-aware agent generate and render 3D from text, images, or video.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "aholo-mcp": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@3d-incubators/aholo-client": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.7.0"
+  }
+}
