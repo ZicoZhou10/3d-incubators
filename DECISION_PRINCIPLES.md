@@ -42,6 +42,8 @@ Anything that wasted 2 minutes building Demo 1 will waste 2N minutes building De
 ## 12. Verify against the artifact, not a proxy metric
 "Did it render?" is answered by looking at the pixels — a screenshot — not by reading a stats counter. A proxy metric is a hypothesis about reality, not reality. Before blaming a dependency, reproduce it working in isolation (its own example/playground). Discovered the hard way: a blank-viewport bug was misdiagnosed for days by trusting `renderInfo.calls === 0`, and nearly escalated to another team — it was our own code. See `demos/prompt-to-object/RENDER_BUG_POSTMORTEM.md`.
 
+**12.1 — Verify against the most complete original artifact, not a slice of it.** The same trap repeated one day later: we inspected only the GLB file (one slice of the Lux3D output) and concluded "no textures." The actual artifact was the ZIP — which contained the GLB *plus* 9 PBR PNGs the GLB never references. The textures were always there. Rule: when an artifact has obvious context (a container, a sibling file, an upstream ZIP, an HTTP envelope), inspect the container before judging the slice.
+
 ---
 
 ## Operating Cadence
