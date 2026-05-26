@@ -128,6 +128,64 @@ def append_image(gltf: dict, bin_data: bytearray, png: bytes, slot_name: str) ->
     return len(textures) - 1
 
 
+def compute_bbox(gltf: dict, bin_chunk: bytes) -> dict:
+    """Local-space AABB across all mesh primitives.
+
+    Lux3D outputs are already centred around the origin with the model's own
+    matrix near identity, so we treat the raw POSITION accessor values as the
+    bbox directly. (Full node-hierarchy transform composition would be more
+    accurate for arbitrary glTF, but adds complexity we don't currently need.)
+    """
+    accessors = gltf.get("accessors", []) or []
+    buffer_views = gltf.get("bufferViews", []) or []
+    meshes = gltf.get("meshes", []) or []
+
+    mn = [float("inf")] * 3
+    mx = [float("-inf")] * 3
+
+    for mesh in meshes:
+        for prim in mesh.get("primitives", []):
+            attrs = prim.get("attributes", {})
+            pos_idx = attrs.get("POSITION")
+            if pos_idx is None or pos_idx >= len(accessors):
+                continue
+            acc = accessors[pos_idx]
+            # POSITION accessors carry min/max per spec — use them when present;
+            # they're correct and cheap.
+            amin = acc.get("min")
+            amax = acc.get("max")
+            if isinstance(amin, list) and isinstance(amax, list) and len(amin) == 3 and len(amax) == 3:
+                for i in range(3):
+                    if amin[i] < mn[i]:
+                        mn[i] = float(amin[i])
+                    if amax[i] > mx[i]:
+                        mx[i] = float(amax[i])
+                continue
+            # Fallback: decode the buffer ourselves.
+            bv_idx = acc.get("bufferView")
+            if bv_idx is None or bv_idx >= len(buffer_views):
+                continue
+            bv = buffer_views[bv_idx]
+            count = int(acc.get("count", 0))
+            base = int(bv.get("byteOffset", 0)) + int(acc.get("byteOffset", 0))
+            stride = int(bv.get("byteStride", 12)) or 12
+            for i in range(count):
+                off = base + i * stride
+                x, y, z = struct.unpack_from("<fff", bin_chunk, off)
+                if x < mn[0]: mn[0] = x
+                if y < mn[1]: mn[1] = y
+                if z < mn[2]: mn[2] = z
+                if x > mx[0]: mx[0] = x
+                if y > mx[1]: mx[1] = y
+                if z > mx[2]: mx[2] = z
+
+    if mn[0] == float("inf"):
+        return {"min": [0.0, 0.0, 0.0], "max": [0.0, 0.0, 0.0], "center": [0.0, 0.0, 0.0], "size": [0.0, 0.0, 0.0]}
+    center = [(mn[i] + mx[i]) / 2 for i in range(3)]
+    size = [mx[i] - mn[i] for i in range(3)]
+    return {"min": mn, "max": mx, "center": center, "size": size}
+
+
 def repack(zip_path: Path, out_path: Path) -> None:
     with zipfile.ZipFile(zip_path) as zf:
         names = zf.namelist()
@@ -180,7 +238,14 @@ def repack(zip_path: Path, out_path: Path) -> None:
     out_bytes = write_glb(gltf, bytes(bin_data))
     out_path.write_bytes(out_bytes)
 
+    # Write a sidecar bbox.json so downstream layout tools (e.g. the LLM
+    # auto-layout script) can size + position without reloading the GLB.
+    bbox = compute_bbox(gltf, bytes(bin_data))
+    bbox_path = out_path.with_suffix(out_path.suffix + ".bbox.json")
+    bbox_path.write_text(json.dumps(bbox, indent=2), encoding="utf-8")
+
     print(f"Wrote {out_path}  ({len(out_bytes):,} bytes)")
+    print(f"  bbox: size={tuple(round(s, 3) for s in bbox['size'])} center={tuple(round(c, 3) for c in bbox['center'])} -> {bbox_path.name}")
     print(f"  embedded ({len(embedded)}):")
     for line in embedded:
         print(f"    {line}")

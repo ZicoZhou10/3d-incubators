@@ -25,6 +25,9 @@ import {
   Vector3,
   type Viewer,
 } from '@manycore/aholo-viewer';
+import { attachOrbit, type OrbitController, type OrbitOptions } from './orbit-control.js';
+
+export { attachOrbit, type OrbitController, type OrbitOptions } from './orbit-control.js';
 
 export interface MountOptions {
   /** Initial camera position. Defaults to a 3m orbital pull-back along +Z. */
@@ -37,6 +40,11 @@ export interface MountOptions {
   splattingEnabled?: boolean;
   /** Pixel ratio cap on hi-DPI devices. */
   pixelRatio?: number;
+  /**
+   * Enable pointer-drag + wheel orbit controls. Pass `true` for sensible
+   * defaults or a config object to tune speed / bounds.
+   */
+  orbit?: boolean | OrbitOptions;
 }
 
 export interface FrameState {
@@ -53,6 +61,11 @@ export interface MountedViewer {
   scene: Scene3D;
   /** The active perspective camera. */
   camera: PerspectiveCamera;
+  /**
+   * Orbit controller when `orbit` was enabled in MountOptions; undefined otherwise.
+   * Use this to re-target the orbit anchor when you change scenes.
+   */
+  orbit?: OrbitController;
   /** Start the render loop. Idempotent. */
   start: () => void;
   /** Register a per-frame callback (e.g. to spin a model). */
@@ -109,6 +122,13 @@ export function mountViewer(container: HTMLElement, opts: MountOptions = {}): Mo
   camera.lookAt(new Vector3(target[0], target[1], target[2]));
   syncCameraAspect(viewer, camera);
 
+  let orbit: OrbitController | undefined;
+  if (opts.orbit && canvas instanceof HTMLCanvasElement) {
+    const orbitOpts = typeof opts.orbit === 'object' ? opts.orbit : {};
+    orbit = attachOrbit(canvas, camera, Vector3, orbitOpts);
+    orbit.setTarget(target[0], target[1], target[2]);
+  }
+
   const frameCallbacks: Array<(state: FrameState) => void> = [];
   let started = false;
   let rafId = 0;
@@ -127,6 +147,7 @@ export function mountViewer(container: HTMLElement, opts: MountOptions = {}): Mo
     viewer,
     scene,
     camera,
+    orbit,
     start() {
       if (started) return;
       started = true;

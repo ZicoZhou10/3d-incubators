@@ -6,41 +6,42 @@
  *   An agent receives a high-level intent ("a cozy reading corner") and
  *   decomposes it into several discrete 3D objects (an armchair, a lamp, an
  *   ottoman, a book stack). Each is generated independently via the Aholo
- *   MCP server's Lux3D path, then placed into a single shared scene.
+ *   MCP server's Lux3D path, then placed into a single shared scene by an
+ *   LLM auto-layout step that knows the components' bounding boxes and
+ *   typical real-world heights.
  *
  *   This is the "Spatially-Grounded Agent" idea made tactile: the agent is
  *   not just producing one artefact, it is reasoning about a *set* of
- *   artefacts and the relationships between them.
+ *   artefacts AND about the spatial relationships between them.
  *
  * Where the work happens:
  *   - Decomposition + Lux3D generation: offline, by an AI agent driving the
- *     Aholo MCP server (aholo_generate_model_from_text → poll →
- *     aholo_get_model_textured_glb). See `src/vignettes.ts` for the per-
- *     component prompts the agent used.
- *   - Placement (transforms): hand-curated after eyeballing the generated
- *     GLBs. This step could in principle be automated, but spatial
- *     composition by an LLM is its own demo (and not what this one is for).
- *   - This page: loads the GLBs at the curated transforms and renders them
- *     together.
+ *     Aholo MCP server. See `src/vignettes.ts` for the per-component prompts.
+ *   - LLM layout: offline, via `scripts/layout-vignette.mjs` — outputs
+ *     `public/scenes/<slug>/layout.json`.
+ *   - This page: loads the GLBs + that layout.json and renders them together.
+ *     User can orbit (drag) and zoom (scroll).
  */
 
 import { mountViewer, loadGltfFromUrl } from '@3d-incubators/viewer-helpers';
 import { AmbientLight, DirectionalLight, Vector3, type Object3D } from '@manycore/aholo-viewer';
-import { VIGNETTES, type Vignette, type VignetteComponent } from './vignettes.js';
+import { VIGNETTES, type Vignette, type VignetteComponent, type VignetteLayout } from './vignettes.js';
 
 // ---------- DOM ----------
 const stageEl = el('stage');
 const statusEl = el('status');
 const controlsEl = el('controls');
 const briefEl = el('brief');
+const hintEl = el('hint');
 
 // ---------- Viewer ----------
 setStatus('Booting viewer…');
 const view = mountViewer(stageEl, {
   cameraUp: [0, 1, 0],
-  cameraPosition: [3.5, 2.4, 4.5],
-  cameraTarget: [0, 0.6, 0],
+  cameraPosition: [2.3, 1.4, 2.6],
+  cameraTarget: [0, 0.5, 0.3],
   splattingEnabled: false,
+  orbit: { rotateSpeed: 0.0055, zoomSpeed: 0.0012, minDistance: 1, maxDistance: 12 },
 });
 addLights();
 view.start();
@@ -63,37 +64,57 @@ async function selectVignette(id: string): Promise<void> {
   if (!vignette) return;
   highlightChip(id);
   showBrief(vignette);
+  resetComponentDots(vignette);
+  hideHint();
 
   const token = ++loadToken;
-  setStatus(`Loading vignette "${vignette.label}" — ${vignette.components.length} components…`);
 
-  // Drop whatever's loaded.
+  // Drop whatever's currently loaded so the scene doesn't double-stack.
   for (const { root } of loaded) view.scene.remove(root);
   loaded = [];
 
-  // Aim the camera at the vignette's framing.
-  const cam = view.camera;
-  cam.position.set(...vignette.camera.position);
-  cam.lookAt(new Vector3(...vignette.camera.target));
+  setStatus(`Fetching layout for "${vignette.label}"…`);
+  let layout: VignetteLayout;
+  try {
+    const res = await fetch(vignette.layoutUrl);
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    layout = (await res.json()) as VignetteLayout;
+  } catch (err) {
+    setStatus(`Could not load layout.json: ${(err as Error).message}`, 'err');
+    return;
+  }
+  if (token !== loadToken) return;
 
-  // Load components in parallel; place each at its curated transform.
-  let loadedCount = 0;
+  // Aim the camera at the layout's framing.
+  if (layout.camera) {
+    view.camera.position.set(...layout.camera.position);
+    view.camera.lookAt(new Vector3(...layout.camera.target));
+    view.orbit?.setTarget(...layout.camera.target);
+  }
+
+  const layoutBySlot = new Map(layout.components.map((c) => [c.slot, c]));
+
+  // Load every component in parallel; place each at the LLM's chosen transform.
+  setStatus(`Loading ${vignette.components.length} components in parallel…`);
   await Promise.all(
     vignette.components.map(async (component) => {
+      setComponentDot(component.slot, 'loading');
       try {
         const handle = await loadGltfFromUrl(view, component.file);
         if (token !== loadToken) {
           handle.remove();
           return;
         }
+        const placement = layoutBySlot.get(component.slot);
+        if (!placement) {
+          throw new Error(`layout.json has no entry for slot "${component.slot}"`);
+        }
         const root = handle.scene as Object3D;
-        applyTransform(root, component);
+        applyPlacement(root, placement);
         loaded.push({ component, root });
-        loadedCount += 1;
-        setStatus(
-          `Loaded ${loadedCount} / ${vignette.components.length} — placing "${component.slot}"…`
-        );
+        setComponentDot(component.slot, 'ok');
       } catch (err) {
+        setComponentDot(component.slot, 'err');
         setStatus(`Could not load ${component.slot}: ${(err as Error).message}`, 'err');
       }
     })
@@ -101,10 +122,14 @@ async function selectVignette(id: string): Promise<void> {
 
   if (token !== loadToken) return;
   setStatus(`"${vignette.label}" — ${loaded.length} components assembled.`, 'ok');
+  showHint();
 }
 
-function applyTransform(root: Object3D, component: VignetteComponent): void {
-  const { position, rotation, scale } = component.transform;
+function applyPlacement(
+  root: Object3D,
+  placement: VignetteLayout['components'][number]
+): void {
+  const { position, rotation, scale } = placement;
   const node = root as Object3D & {
     position: { set: (x: number, y: number, z: number) => void };
     rotation: { set: (x: number, y: number, z: number) => void };
@@ -132,7 +157,7 @@ function addLights(): void {
 
 function renderControls(): void {
   controlsEl.innerHTML = `
-    <p class="hint">Pick a vignette an agent has already decomposed and generated:</p>
+    <p class="hint">Pick a vignette an agent has already decomposed, generated, and laid out:</p>
     <div class="chips">
       ${VIGNETTES.map(
         (v) => `<button class="chip" type="button" data-id="${v.id}">${escapeHtml(v.label)}</button>`
@@ -149,20 +174,58 @@ function showBrief(v: Vignette): void {
     <div class="brief">
       <div class="brief-label">Brief</div>
       <div class="brief-body">${escapeHtml(v.brief)}</div>
-      <div class="brief-label" style="margin-top:8px">Decomposed into</div>
+      <div class="brief-label brief-label-row">
+        <span>Decomposed into</span>
+        <span class="dots" id="component-dots"></span>
+      </div>
       <ul class="brief-list">
         ${v.components
-          .map((c) => `<li><code>${escapeHtml(c.slot)}</code> — ${escapeHtml(c.prompt)}</li>`)
+          .map(
+            (c) =>
+              `<li><code data-slot="${escapeHtml(c.slot)}" class="slot-tag slot-pending">${escapeHtml(c.slot)}</code> — ${escapeHtml(c.prompt)}</li>`
+          )
           .join('')}
       </ul>
     </div>
   `;
 }
 
+function resetComponentDots(v: Vignette): void {
+  for (const tag of document.querySelectorAll<HTMLElement>('.slot-tag')) {
+    tag.className = 'slot-tag slot-pending';
+  }
+  const dotsEl = document.getElementById('component-dots');
+  if (dotsEl) {
+    dotsEl.innerHTML = v.components.map(() => `<span class="dot dot-pending"></span>`).join('');
+  }
+}
+
+function setComponentDot(slot: string, state: 'loading' | 'ok' | 'err'): void {
+  const tag = document.querySelector<HTMLElement>(`.slot-tag[data-slot="${slot}"]`);
+  if (tag) {
+    tag.className = `slot-tag slot-${state}`;
+  }
+  // Update the inline dot counter too — find the matching dot by index.
+  const slots = Array.from(document.querySelectorAll<HTMLElement>('.slot-tag')).map(
+    (t) => t.dataset.slot
+  );
+  const idx = slots.indexOf(slot);
+  const dot = document.querySelectorAll<HTMLElement>('.dot')[idx];
+  if (dot) dot.className = `dot dot-${state}`;
+}
+
 function highlightChip(id: string): void {
   for (const chip of document.querySelectorAll<HTMLButtonElement>('.chip')) {
     chip.classList.toggle('chip-active', chip.dataset.id === id);
   }
+}
+
+function showHint(): void {
+  hintEl.classList.add('hint-visible');
+}
+
+function hideHint(): void {
+  hintEl.classList.remove('hint-visible');
 }
 
 function setStatus(text: string, kind: '' | 'ok' | 'err' = ''): void {

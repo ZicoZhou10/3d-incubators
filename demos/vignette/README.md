@@ -26,11 +26,11 @@ Offline, an agent (Claude Code via the Aholo MCP) ran this pipeline:
 1. **Read the brief** — e.g. *"A cozy reading corner with an armchair, a tall floor lamp, a small leather footstool, and a stack of books on the floor next to the chair."*
 2. **Decompose** the brief into discrete generatable components (4 in this case). The agent author picks the prompt phrasing per component.
 3. **Submit Lux3D text-to-3D in parallel** — Lux3D's per-account concurrency supports it. Each takes 3–8 minutes.
-4. **Repack each ZIP** — Lux3D ships GLB + 9 separate V-Ray-style PNGs; the bare GLB is grey. The repacker embeds the three glTF-standard PBR slots (diffuse / normal / emissive).
-5. **Place each component** at a hand-curated transform (position / rotation / uniform scale) that makes them sit together as a scene.
-6. **Drop the GLBs** into `public/scenes/<slug>/` and add an entry to `src/vignettes.ts`.
+4. **Repack each ZIP** — Lux3D ships GLB + 9 separate V-Ray-style PNGs; the bare GLB is grey. The repacker (`scripts/repack-lux3d-zip.py`) embeds the three glTF-standard PBR slots (diffuse / normal / emissive) AND writes a `<component>.glb.bbox.json` sidecar with the local-space bounding box.
+5. **LLM auto-layout** (`scripts/layout-vignette.mjs`) — feeds the brief + per-component prompts + bounding-box sizes into Claude, with a system prompt that pins down conventions (Y-up, Y=0 floor, real-world height priors per object class) and asks for a JSON layout. Output goes into `public/scenes/<slug>/layout.json`.
+6. **Drop the GLBs** into `public/scenes/<slug>/`, add a `Vignette` entry to `src/vignettes.ts` (non-spatial metadata: brief + per-component prompt + file paths). The page reads `layout.json` at runtime.
 
-This page is the viewer half. It reads the vignette manifest and loads each GLB at its transform.
+This page is the viewer half. It reads the vignette manifest, fetches the LLM-generated `layout.json`, and loads each GLB at the placement the LLM chose. The user can orbit (drag) and zoom (scroll).
 
 ## Run it
 
