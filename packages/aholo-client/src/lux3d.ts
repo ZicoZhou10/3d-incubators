@@ -108,18 +108,45 @@ function normalizeCreated(raw: unknown, what: string): Lux3DTaskCreated {
   return { taskid };
 }
 
-function normalizeDetail(raw: unknown, fallbackTaskid: string): Lux3DTaskDetail {
-  const payload = unwrapLux3D(raw, 'task get');
-  const o = asObject(payload);
+/**
+ * Lux3D's actual status field is an *integer enum* per the OpenAPI spec —
+ * 0 = init, 1 = in progress, 3 = success, 4 = failed. We translate to the
+ * string status the rest of the codebase expects.
+ */
+const INT_STATUS: Record<number, Lux3DTaskDetail['status']> = {
+  0: 'PENDING',
+  1: 'RUNNING',
+  3: 'SUCCEEDED',
+  4: 'FAILED',
+};
 
-  const taskid = firstId(o, ID_KEYS) ?? fallbackTaskid;
-  const status = (firstString(o, ['status', 'state', 'taskStatus', 'taskState']) ?? 'UNKNOWN')
-    .toUpperCase();
+function readStatus(o: Json): Lux3DTaskDetail['status'] {
+  const raw = o.status ?? o.state ?? o.taskStatus ?? o.taskState;
+  if (typeof raw === 'number' && Number.isInteger(raw)) {
+    return INT_STATUS[raw] ?? 'UNKNOWN';
+  }
+  if (typeof raw === 'string' && raw.length > 0) return raw.toUpperCase();
+  return 'UNKNOWN';
+}
 
-  // Result URL may be nested (`result.url`) or a flat `*url`-style field.
+/**
+ * Lux3D's actual result-URL location is `outputs[0].content` (an array of
+ * `{content: string}`) per the OpenAPI spec. Older / informal shapes use
+ * `result.url` or various `*_url` flat fields — keep the fallbacks so a
+ * gateway revision doesn't silently break the client.
+ */
+function readResultUrl(o: Json): string | undefined {
+  const outputs = o.outputs;
+  if (Array.isArray(outputs)) {
+    for (const item of outputs) {
+      const content = (item as Json | null)?.content;
+      if (typeof content === 'string' && content.length > 0) return content;
+    }
+  }
   const resultObj = asObject(o.result);
-  const url =
-    (typeof resultObj.url === 'string' && resultObj.url.length > 0 ? resultObj.url : undefined) ??
+  const nested = typeof resultObj.url === 'string' && resultObj.url.length > 0 ? resultObj.url : undefined;
+  return (
+    nested ??
     firstString(o, [
       'result_url',
       'resultUrl',
@@ -130,8 +157,17 @@ function normalizeDetail(raw: unknown, fallbackTaskid: string): Lux3DTaskDetail 
       'zipUrl',
       'glbUrl',
       'url',
-    ]);
+    ])
+  );
+}
 
+function normalizeDetail(raw: unknown, fallbackTaskid: string): Lux3DTaskDetail {
+  const payload = unwrapLux3D(raw, 'task get');
+  const o = asObject(payload);
+
+  const taskid = firstId(o, ID_KEYS) ?? fallbackTaskid;
+  const status = readStatus(o);
+  const url = readResultUrl(o);
   const error = o.error && typeof o.error === 'object' ? (o.error as ApiError) : undefined;
 
   return {

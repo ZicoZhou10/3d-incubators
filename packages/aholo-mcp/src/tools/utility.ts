@@ -10,6 +10,11 @@
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import {
+  getWorld,
+  getLux3DTask,
+  type ClientConfig,
+} from '@3d-incubators/aholo-client';
 
 const GUIDE = `# Aholo capability map — which tool for which job
 
@@ -43,7 +48,7 @@ const GUIDE = `# Aholo capability map — which tool for which job
 - RenderCloud OpenUSD rendering. For real-time streaming, use the RenderCloud
   namespace re-exported from @manycore/aholo-viewer directly.`;
 
-export function registerUtilityTools(server: McpServer): void {
+export function registerUtilityTools(server: McpServer, cfg: ClientConfig): void {
   server.registerTool(
     'aholo_choose_api',
     {
@@ -69,4 +74,129 @@ export function registerUtilityTools(server: McpServer): void {
       };
     }
   );
+
+  // -------------------------------------------------------------------------
+  // aholo_diagnose_job
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    'aholo_diagnose_job',
+    {
+      title: 'Diagnose a stuck or failed job',
+      description:
+        'Inspect a World worldId or Lux3D taskid, fetch its current state, and ' +
+        'return a structured diagnosis: status, elapsed time, what to do next. ' +
+        'Use when a job seems stuck or you forgot which kind of id it was.',
+      inputSchema: {
+        id: z.string().min(1).describe('A worldId (World) or taskid (Lux3D).'),
+        kind: z
+          .enum(['world', 'lux3d', 'auto'])
+          .default('auto')
+          .describe('Hint which API the id belongs to. "auto" tries World first, then Lux3D.'),
+      },
+    },
+    async ({ id, kind }) => {
+      const tried: string[] = [];
+      const tryWorld = async () => {
+        tried.push('world');
+        const detail = await getWorld(cfg, id);
+        const status = (detail.status ?? '').toUpperCase();
+        const age =
+          typeof detail.createTime === 'number'
+            ? Math.round((Date.now() - detail.createTime) / 1000)
+            : undefined;
+        const advice = worldAdvice(status, age);
+        return {
+          structuredContent: { api: 'world', id, status, ageSeconds: age, detail },
+          content: [
+            {
+              type: 'text',
+              text:
+                `[World] ${id}\n` +
+                `  status: ${status}\n` +
+                (age !== undefined ? `  age: ${age}s since createTime\n` : '') +
+                `  advice: ${advice}`,
+            },
+          ],
+        } satisfies UtilityResult;
+      };
+      const tryLux3D = async () => {
+        tried.push('lux3d');
+        const detail = await getLux3DTask(cfg, id);
+        const status = (detail.status ?? '').toUpperCase();
+        const advice = lux3dAdvice(status, detail.result?.url);
+        return {
+          structuredContent: { api: 'lux3d', id, status, detail },
+          content: [
+            {
+              type: 'text',
+              text:
+                `[Lux3D] ${id}\n` +
+                `  status: ${status}\n` +
+                (detail.result?.url ? `  resultUrl: ${detail.result.url.slice(0, 100)}…\n` : '') +
+                `  advice: ${advice}`,
+            },
+          ],
+        } satisfies UtilityResult;
+      };
+
+      try {
+        if (kind === 'world') return await tryWorld();
+        if (kind === 'lux3d') return await tryLux3D();
+        // auto
+        try {
+          return await tryWorld();
+        } catch {
+          return await tryLux3D();
+        }
+      } catch (err) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text',
+              text:
+                `Could not diagnose id "${id}" via ${tried.join(', ') || 'any API'}: ` +
+                `${(err as Error).message}.\n` +
+                `If it's a Lux3D taskid that succeeded over 2h ago the result URL has ` +
+                `expired — Lux3D signs URLs once at submission time.`,
+            },
+          ],
+        };
+      }
+    }
+  );
+}
+
+interface UtilityResult {
+  [x: string]: unknown;
+  content: Array<{ type: 'text'; text: string }>;
+  structuredContent?: Record<string, unknown>;
+  isError?: boolean;
+}
+
+function worldAdvice(status: string, ageSeconds: number | undefined): string {
+  if (status === 'SUCCEEDED') return 'Done. Read `assets.splats.urls` for the splat files.';
+  if (status === 'FAILED') return 'Check `error.message`. World gen failures usually mean a too-abstract prompt or quota.';
+  if (status === 'CANCELLED') return 'Job was cancelled. Re-submit if you still want the output.';
+  if (status === 'RUNNING') {
+    return ageSeconds && ageSeconds > 20 * 60
+      ? 'RUNNING for >20 min — unusually long; consider a fresh submit. Normal is 5-15 min total.'
+      : 'Normal. Wait ~30 s and re-poll.';
+  }
+  if (status === 'PENDING') {
+    return ageSeconds && ageSeconds > 15 * 60
+      ? 'PENDING for >15 min — long queue. Account may have hit a concurrency limit. Still likely to start; do not abort.'
+      : 'Queued — NOT stuck. Wait ~30 s and re-poll.';
+  }
+  return `Unknown status "${status}". Re-poll, or use aholo_choose_api to confirm the right tool.`;
+}
+
+function lux3dAdvice(status: string, hasUrl: string | undefined): string {
+  if (status === 'SUCCEEDED' && hasUrl)
+    return 'Done. Call aholo_get_model_textured_glb to download + repack into a renderable GLB.';
+  if (status === 'SUCCEEDED')
+    return 'Marked SUCCEEDED but no result URL — Lux3D URL likely expired (2 h window). Resubmit.';
+  if (status === 'FAILED') return 'Resubmit with a more concrete prompt + matching style.';
+  if (status === 'RUNNING' || status === 'PENDING') return 'Normal. Wait 10-15 s and re-poll.';
+  return `Unknown status "${status}". Re-poll.`;
 }

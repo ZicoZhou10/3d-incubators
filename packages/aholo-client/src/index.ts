@@ -30,8 +30,10 @@ export {
   generateAndWait,
   reconstructAndWait,
   getWorld,
+  listWorlds,
   pollWorld,
 } from './world.js';
+export type { WorldListRequest, WorldListResponse } from './world.js';
 
 // Lux3D
 export {

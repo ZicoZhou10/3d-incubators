@@ -11,8 +11,8 @@
  * result URL is only valid ~2 hours, so download promptly after SUCCEEDED.
  */
 
-import { readFile } from 'node:fs/promises';
-import { extname } from 'node:path';
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { extname, dirname, resolve as resolvePath } from 'node:path';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import {
@@ -23,6 +23,7 @@ import {
   type ClientConfig,
   type Lux3DTaskDetail,
 } from '@3d-incubators/aholo-client';
+import { repackLux3DZip } from '../repack.js';
 
 const LUX3D_STYLES = [
   'photorealistic',
@@ -115,6 +116,95 @@ export function registerLux3DTools(server: McpServer, cfg: ClientConfig): void {
   // -------------------------------------------------------------------------
   // aholo_get_model
   // -------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // aholo_get_model_textured_glb
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    'aholo_get_model_textured_glb',
+    {
+      title: 'Download a Lux3D result + repack into a textured GLB',
+      description:
+        'Fetch a SUCCEEDED Lux3D task and write a SELF-CONTAINED, renderable .glb ' +
+        'file to disk.\n\n' +
+        'Lux3D returns a ZIP containing a GLB plus 9 separate PBR PNGs (V-Ray-style ' +
+        'names — see aholo_get_model). The bare GLB renders as grey clay because it ' +
+        'embeds only an 80-byte placeholder. This tool downloads the ZIP, embeds ' +
+        'the three PNGs that map cleanly to standard glTF PBR slots ' +
+        '(RawDiffuseFilter → baseColorTexture, TangentSpaceNormal → normalTexture, ' +
+        'RawSelfIlluminationFilter → emissiveTexture), rewrites the material, and ' +
+        'writes a finished GLB to `outputPath`.\n\n' +
+        'V-Ray-only channels (reflect / refract / fresnel) are intentionally ' +
+        'skipped — they need channel composition out of scope for this tool.\n\n' +
+        'Prerequisite: the task must already be SUCCEEDED. If not, call ' +
+        '`aholo_get_model` first to confirm.',
+      inputSchema: {
+        taskid: z.string().min(1).describe('The taskid of a SUCCEEDED Lux3D task.'),
+        outputPath: z
+          .string()
+          .min(1)
+          .describe(
+            'Absolute or relative filesystem path to write the textured .glb to. ' +
+              'Parent directories are created if needed.'
+          ),
+      },
+    },
+    async ({ taskid, outputPath }) => {
+      try {
+        const detail = await getLux3DTask(cfg, taskid);
+        const status = (detail.status ?? '').toUpperCase();
+        if (status !== 'SUCCEEDED') {
+          return toolError(
+            'aholo_get_model_textured_glb',
+            new Error(
+              `Task ${taskid} is ${status || 'in unknown state'}, not SUCCEEDED. ` +
+                `Call aholo_get_model to poll first.`
+            )
+          );
+        }
+        const zipUrl = detail.result?.url;
+        if (!zipUrl) {
+          return toolError(
+            'aholo_get_model_textured_glb',
+            new Error(`Task ${taskid} succeeded but has no result URL — gateway may have changed shape.`)
+          );
+        }
+        const zipBytes = await downloadBinary(zipUrl);
+        const { glb, report } = repackLux3DZip(zipBytes);
+        const finalPath = resolvePath(outputPath);
+        await mkdir(dirname(finalPath), { recursive: true });
+        await writeFile(finalPath, glb);
+        return {
+          structuredContent: {
+            taskid,
+            outputPath: finalPath,
+            outputBytes: report.outputBytes,
+            embedded: report.embedded,
+            skipped: report.skipped,
+            vRayOnly: report.vRayOnly,
+          },
+          content: [
+            {
+              type: 'text',
+              text:
+                `Wrote textured GLB to ${finalPath} (${(report.outputBytes / 1024).toFixed(0)} KB).\n\n` +
+                `Embedded (${report.embedded.length}):\n${report.embedded.map((l) => '  ' + l).join('\n')}\n\n` +
+                (report.skipped.length
+                  ? `Skipped (${report.skipped.length}):\n${report.skipped.map((l) => '  ' + l).join('\n')}\n\n`
+                  : '') +
+                `V-Ray-only PNGs not mapped to standard glTF PBR (${report.vRayOnly.length}):\n${report.vRayOnly.map((l) => '  ' + l).join('\n')}\n\n` +
+                `The resulting .glb is self-contained — load it with @manycore/aholo-viewer's GLTFLoader, model-viewer, three.js, or any standard glTF renderer and the textures will appear.`,
+            },
+          ],
+        };
+      } catch (err) {
+        return toolError('aholo_get_model_textured_glb', err);
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // aholo_get_model
+  // -------------------------------------------------------------------------
   server.registerTool(
     'aholo_get_model',
     {
@@ -124,7 +214,14 @@ export function registerLux3DTools(server: McpServer, cfg: ClientConfig): void {
         'result URL when ready.\n\n' +
         'Status: PENDING / RUNNING / SUCCEEDED / FAILED. Recommended poll interval ' +
         'is 10-15s. On SUCCEEDED, `result.url` points to a ZIP containing a GLB ' +
-        'model and PBR textures — the URL expires in ~2 hours, download promptly.',
+        'model and 9 separate PBR PNG textures — the URL expires in ~2 hours.\n\n' +
+        '⚠ IMPORTANT: the GLB *inside* that ZIP is NOT directly renderable. It ' +
+        'embeds only an 80-byte placeholder texture and does not reference the ' +
+        'sibling PBR PNGs (Aholo uses V-Ray-style naming: RawDiffuseFilter, ' +
+        'TangentSpaceNormal, etc. — not standard glTF). Loading it raw produces ' +
+        'grey clay. To get a textured, renderable GLB use `aholo_get_model_textured_glb` ' +
+        '(it downloads the ZIP, repacks the textures into standard glTF PBR slots, ' +
+        'and writes a self-contained .glb file).',
       inputSchema: {
         taskid: z.string().min(1).describe('The taskid returned by a generate-model tool.'),
       },
@@ -143,6 +240,15 @@ export function registerLux3DTools(server: McpServer, cfg: ClientConfig): void {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+async function downloadBinary(url: string): Promise<Uint8Array> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`download failed ${res.status} ${res.statusText} (${url.slice(0, 80)}…)`);
+  }
+  const buf = await res.arrayBuffer();
+  return new Uint8Array(buf);
+}
 
 interface ToolResult {
   [x: string]: unknown;

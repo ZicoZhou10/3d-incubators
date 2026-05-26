@@ -23,17 +23,22 @@ import { loadClientConfig, SERVER_INFO } from './config.js';
 import { registerWorldTools } from './tools/world.js';
 import { registerLux3DTools } from './tools/lux3d.js';
 import { registerUtilityTools } from './tools/utility.js';
+import { registerResources } from './resources.js';
+import { registerPrompts } from './prompts.js';
 
 async function main(): Promise<void> {
   // Fail fast and loud if the key is missing — before the transport connects.
   const clientConfig = loadClientConfig();
 
-  const server = new McpServer(SERVER_INFO);
+  const server = new McpServer(SERVER_INFO, {
+    capabilities: { tools: {}, resources: {}, prompts: {} },
+  });
 
   registerWorldTools(server, clientConfig);
   registerLux3DTools(server, clientConfig);
-  registerUtilityTools(server);
-  // RenderCloud + reconstruction-with-upload + resources land in the next pass.
+  registerUtilityTools(server, clientConfig);
+  registerResources(server);
+  registerPrompts(server);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);

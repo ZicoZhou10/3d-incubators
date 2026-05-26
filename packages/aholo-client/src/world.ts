@@ -66,6 +66,35 @@ export function getWorld(
   });
 }
 
+export interface WorldListRequest {
+  pageNum?: number;
+  pageSize?: number;
+  statusList?: string[];
+}
+
+export interface WorldListResponse {
+  /** Page of world summaries. Shape per the OpenAPI spec; we keep it permissive. */
+  list?: WorldDetail[];
+  total?: number;
+  pageNum?: number;
+  pageSize?: number;
+  [k: string]: unknown;
+}
+
+/** POST /world/v1/list — page through worlds owned by this account. */
+export function listWorlds(
+  cfg: ClientConfig,
+  body: WorldListRequest = {},
+  signal?: AbortSignal
+): Promise<WorldListResponse> {
+  return request<WorldListResponse>(cfg, {
+    method: 'POST',
+    path: worldPath(cfg, '/list'),
+    body: { pageNum: body.pageNum ?? 1, pageSize: body.pageSize ?? 20, ...body },
+    signal,
+  });
+}
+
 const TERMINAL_STATUSES = new Set(['SUCCEEDED', 'FAILED', 'CANCELLED']);
 
 /**
