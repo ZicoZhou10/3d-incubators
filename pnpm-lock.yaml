@@ -49,6 +49,22 @@ importers:
         specifier: ^3.78.0
         version: 3.114.17(@cloudflare/workers-types@4.20260520.1)
 
+  demos/vignette:
+    dependencies:
+      '@3d-incubators/viewer-helpers':
+        specifier: workspace:*
+        version: link:../../packages/viewer-helpers
+      '@manycore/aholo-viewer':
+        specifier: 1.0.0-alpha.0
+        version: 1.0.0-alpha.0
+    devDependencies:
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.4.0
+        version: 5.4.21(@types/node@20.19.41)
+
   packages/aholo-client:
     devDependencies:
       typescript:
