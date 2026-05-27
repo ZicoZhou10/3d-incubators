@@ -2,7 +2,7 @@
   "name": "@3d-incubators/demo-vignette",
   "version": "0.0.0",
   "private": true,
-  "description": "Agent decomposes a brief into multiple 3D objects assembled into a scene",
+  "description": "Diorama — chip-based brief + library of agent-generated parts → 3 LLM-composed variants → swap & re-roll in 3D",
   "license": "MIT",
   "type": "module",
   "scripts": {

@@ -1,64 +1,72 @@
-# Vignette
+# Diorama
 
-> An AI agent decomposes a brief into several 3D objects and assembles them into one scene.
+> A chip-based brief + a library of agent-generated 3D parts → 3 LLM-composed variants → an interactive 3D scene the user can swap and re-roll component-by-component.
+
+Internal folder is still `demos/vignette/` (history). The product is **Diorama**.
 
 ## Pattern this demo points at
 
-> **Spatially-Grounded Agent.** The agent isn't just generating a single artefact, it's reasoning about a *set* of artefacts and how they sit together in space.
+> **Steerable scene assembly.** The user isn't writing 3D vocabulary or placing meshes. They're picking from chips, naming a vibe, pinning must-haves, and choosing between LLM-composed variants — *like Midjourney for 3D scenes, but built from a pack of reusable assets.*
 
-Demos 1 and 2 each produced one thing — one world, one object. This demo produces **a small composed scene** from one high-level brief, by an agent that decomposed the brief into components, generated each via Lux3D, and placed them at curated transforms. The result is the same MCP-only pipeline as Demo 2, scaled to multi-object output.
+A game studio (or a tool that targets one) needs *many* indoor scenes — apartments, hideouts, offices, workstations — populated with style-consistent props. Diorama is the assembly half of that workflow: a fixed library of agent-generated cyberpunk / cozy / etc. components, an LLM that knows how to compose them under a brief, and a 3D canvas where you can iterate.
 
-The pattern unlocks: product viz套装, interior design previews, education scenes, retail collection samples — anywhere a developer's customer thinks in terms of *a scene*, not *a thing*.
+The pattern unlocks: rapid indoor scene prototyping for indie games, world-building previews, classroom dioramas, set design boards — anywhere the user wants a *composition* rather than a *single object*.
 
 ## What it touches
 
 | Layer | What |
 |---|---|
-| API | `POST /lux3d/v1/generate/text-to-3d/task/create` × N (parallel), `task/get` polling |
-| MCP | `aholo_generate_model_from_text` → `aholo_get_model` → `aholo_get_model_textured_glb` |
-| SDK | `@manycore/aholo-viewer` GLTFLoader; `@3d-incubators/viewer-helpers` mountViewer + loadGltfFromUrl |
-| Repack | `scripts/repack-lux3d-zip.py` (or `aholo_get_model_textured_glb` server-side) embeds PBR PNGs into each GLB |
+| Library | `public/library/<pack>/<id>.glb` + `.bbox.json` sidecars, fronted by `public/library/catalog.json` |
+| LLM | Direct browser → Anthropic Messages API (Sonnet 4.6), `claude-sonnet-4-6`, dangerous-direct-browser-access header |
+| Layout | LLM reads the catalog (per-component real-world heights + bbox footprints) and emits 3 variants per roll |
+| Viewer | `@manycore/aholo-viewer` GLTFLoader via `@3d-incubators/viewer-helpers` mountViewer + loadGltfFromUrl |
+| State | URL hash (`#s=<base64-json>`) carries the picked variant for shareable links |
 
-## How the vignette was made
+## How the library was built
 
-Offline, an agent (Claude Code via the Aholo MCP) ran this pipeline:
+Offline, an agent (Claude Code via the Aholo MCP) ran:
 
-1. **Read the brief** — e.g. *"A cozy reading corner with an armchair, a tall floor lamp, a small leather footstool, and a stack of books on the floor next to the chair."*
-2. **Decompose** the brief into discrete generatable components (4 in this case). The agent author picks the prompt phrasing per component.
-3. **Submit Lux3D text-to-3D in parallel** — Lux3D's per-account concurrency supports it. Each takes 3–8 minutes.
-4. **Repack each ZIP** — Lux3D ships GLB + 9 separate V-Ray-style PNGs; the bare GLB is grey. The repacker (`scripts/repack-lux3d-zip.py`) embeds the three glTF-standard PBR slots (diffuse / normal / emissive) AND writes a `<component>.glb.bbox.json` sidecar with the local-space bounding box.
-5. **LLM auto-layout** (`scripts/layout-vignette.mjs`) — feeds the brief + per-component prompts + bounding-box sizes into Claude, with a system prompt that pins down conventions (Y-up, Y=0 floor, real-world height priors per object class) and asks for a JSON layout. Output goes into `public/scenes/<slug>/layout.json`.
-6. **Drop the GLBs** into `public/scenes/<slug>/`, add a `Vignette` entry to `src/vignettes.ts` (non-spatial metadata: brief + per-component prompt + file paths). The page reads `layout.json` at runtime.
+1. **Pick a pack** (e.g. "cyberpunk apartment").
+2. **Decide the components** that make the pack (lamp / monitors / chair / etc.).
+3. **Submit Lux3D text-to-3d in parallel** — one task per component.
+4. **Repack** each ZIP into a self-contained textured GLB (`scripts/repack-lux3d-zip.py`), which also writes a `<file>.glb.bbox.json` sidecar with the local-space bounding box.
+5. **Add the components** to `public/library/<pack>/` and update `public/library/catalog.json` with their metadata + real-world height priors.
 
-This page is the viewer half. It reads the vignette manifest, fetches the LLM-generated `layout.json`, and loads each GLB at the placement the LLM chose. The user can orbit (drag) and zoom (scroll).
+The library is the durable artefact. New packs are added by running steps 1–5 again.
+
+## How the assembly works at runtime
+
+1. The page fetches `library/catalog.json`.
+2. The user fills out the **compose** screen: pack selector, vibe chips, room chip, must-have components, free-text refine.
+3. They click **Roll 3 variants** — the page calls Anthropic directly from the browser. The system prompt lists every component in the chosen pack with its category, real-world height and footprint. The model returns three variants, each with a name, a one-line narrative, a component subset, per-component position + rotation + rationale, and a camera framing.
+4. The user picks one from the **variants** screen (each card includes a top-down 2D schematic). The pick is encoded into the URL hash.
+5. On the **scene** screen, each component can be **swapped** for another component of the same category from the same pack. Re-roll regenerates new variants from the same brief.
 
 ## Run it
 
 ```bash
-pnpm install               # at the repo root, once
+pnpm install
 pnpm --filter @3d-incubators/demo-vignette dev
 ```
 
-Open the printed local URL. Pick a vignette chip; the components load and assemble.
-
-## Adding another vignette
-
-Re-run the same offline flow with new prompts:
-
-```bash
-# (in a Claude Code session with the Aholo MCP wired up)
-# 1. aholo_generate_model_from_text({ prompt, style }) × N in parallel
-# 2. aholo_get_model + aholo_get_model_textured_glb once each is SUCCEEDED
-# 3. drop the GLBs into public/scenes/<your-slug>/
-# 4. add a Vignette entry to src/vignettes.ts with curated transforms
-```
-
-The placement step is hand-curated for now. A future iteration could auto-place via an LLM that knows the bounding boxes — but that's a different demo (and a separate hard problem).
+Open the printed local URL. Click **Set API key** in the topbar, paste an Anthropic key (it stays in `localStorage` — no server in the loop). Fill the brief, roll.
 
 ## What's in the box
 
 | File | Job |
 |---|---|
-| `src/vignettes.ts` | The vignette registry — prompts, files, transforms |
-| `src/main.ts` | Mounts the viewer, loads + places each component |
-| `public/scenes/<slug>/*.glb` | Agent-generated, repacked, ready-to-render meshes |
+| `public/library/catalog.json` | Master catalog — packs + components + bboxes |
+| `public/library/<pack>/*.glb` | Agent-generated, repacked, ready-to-render meshes |
+| `src/library.ts` | Catalog types + fetch + bbox-derived uniform scale |
+| `src/llm.ts` | Browser-direct Anthropic call + variant JSON coercion |
+| `src/state.ts` | URL hash encode/decode + API-key localStorage |
+| `src/main.ts` | State machine: compose → rolling → variants → scene |
+
+## Adding a new pack
+
+1. Define the pack's components (categories: `seat / light / surface / work / decor`).
+2. Generate each via `aholo_generate_model_from_text` + `aholo_get_model_textured_glb` (or the MCP composite call).
+3. Drop GLBs + sidecars into `public/library/<pack-id>/`.
+4. Add an entry under `packs[]` in `public/library/catalog.json` with vibes, rooms, component metadata.
+
+No code changes. The compose screen reads the catalog at runtime.

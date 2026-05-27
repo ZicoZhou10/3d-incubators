@@ -3,215 +3,38 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Nook · a co-designed reading corner</title>
+    <title>Diorama · assemble 3D scenes from agent-generated parts</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300..700,0..100&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/src/styles.css" />
   </head>
-  <body>
+  <body data-screen="compose">
+    <header class="topbar">
+      <a href="/" class="brand">
+        <span class="brand-mark">Diorama</span>
+        <span class="brand-dot">.</span>
+      </a>
+      <p class="brand-tag">3D scene assembly · agent-generated parts · steerable</p>
+      <div class="topbar-actions">
+        <button type="button" id="api-key-chip" class="topbar-chip" data-present="false">Set API key</button>
+        <a class="topbar-chip topbar-chip-ghost" href="https://github.com/ZicoZhou10/3d-incubators" target="_blank" rel="noreferrer">repo</a>
+      </div>
+    </header>
+
     <main id="app">
-      <!-- ============================== STAGE (above-the-fold) -->
-      <section class="stage" id="stage-section">
-        <div id="stage" class="stage-viewport"></div>
+      <div id="stage" class="stage"></div>
 
-        <header class="brand">
-          <a href="/" class="brand-mark" aria-label="Nook">Nook<span class="brand-dot">.</span></a>
-          <p class="brand-tag">an AI co-designer for your friends' small spaces</p>
-        </header>
-
-        <nav class="stage-actions" aria-label="share">
-          <button type="button" id="share" class="action action-primary">
-            <span class="action-label" id="share-label">Send to Mia</span>
-            <span class="action-arrow" id="share-arrow" aria-hidden="true">→</span>
-          </button>
-        </nav>
-
-        <aside class="brief" aria-label="Sara's brief">
-          <p class="brief-meta">
-            <span class="brief-avatar" aria-hidden="true">S</span>
-            <span>Sara</span>
-            <span class="brief-sep">·</span>
-            <span>for Mia</span>
-            <span class="brief-sep">·</span>
-            <span class="brief-time">just now</span>
-          </p>
-          <blockquote class="brief-quote">
-            <span class="brief-mark" aria-hidden="true">&ldquo;</span>Mia wants a quiet
-            reading nook by the window — mid-century vibes, warm tones. An armchair
-            she can sink into, a tall reading lamp, a little footstool, and her
-            current books in a stack on the floor.<span class="brief-mark" aria-hidden="true">&rdquo;</span>
-          </blockquote>
-          <p class="brief-where">Brooklyn · 220&nbsp;sq&nbsp;ft · east-facing window</p>
-        </aside>
-
-        <section class="components" id="controls" aria-label="four pieces in this nook">
-          <header class="components-head">
-            <span class="components-eyebrow">four pieces</span>
-            <span class="components-rule" aria-hidden="true"></span>
-            <span class="components-hint">click to inspect</span>
-          </header>
-          <ol class="components-list" id="component-list"></ol>
-        </section>
-
-        <p class="stage-hint" id="hint" data-state="hidden" aria-hidden="true">
-          <span class="hint-glyph">↻</span> drag to orbit
-        </p>
-
-        <a href="#how" class="stage-scroll" aria-label="how this was made">
-          <span>how this was made</span>
-          <span class="stage-scroll-rule" aria-hidden="true"></span>
-          <span class="stage-scroll-arrow" aria-hidden="true">↓</span>
-        </a>
-
-        <div class="composing" id="composing" data-state="composing" aria-live="polite">
-          <p class="composing-mark">Nook<span class="brand-dot">.</span></p>
-          <p class="composing-text" id="composing-text">composing your nook</p>
-          <ol class="composing-dots" id="composing-dots"></ol>
-        </div>
-      </section>
-
-      <!-- ============================== DETAIL drawer -->
-      <aside class="detail" id="detail" data-state="closed" aria-hidden="true">
-        <header class="detail-head">
-          <p class="detail-eyebrow">
-            <span id="detail-index">Nº 01</span>
-            <span class="detail-sep">·</span>
-            <span id="detail-slot">armchair</span>
-          </p>
-          <button type="button" class="detail-close" id="detail-close" aria-label="close">
-            <span aria-hidden="true">×</span>
-          </button>
-        </header>
-        <section class="detail-section">
-          <p class="detail-label">prompt the agent wrote</p>
-          <blockquote class="detail-prompt" id="detail-prompt"></blockquote>
-        </section>
-        <section class="detail-section">
-          <p class="detail-label">why it sits here</p>
-          <p class="detail-rationale" id="detail-rationale"></p>
-        </section>
-        <section class="detail-section detail-numbers">
-          <p class="detail-label">numbers</p>
-          <dl>
-            <dt>scale</dt><dd id="detail-scale">—</dd>
-            <dt>position</dt><dd id="detail-position">—</dd>
-            <dt>rotation</dt><dd id="detail-rotation">—</dd>
-          </dl>
-        </section>
-      </aside>
-
-      <!-- ============================== ESSAY (below-the-fold) -->
-      <article class="essay" id="how">
-        <header class="essay-head">
-          <p class="essay-eyebrow">how this was made</p>
-          <h2 class="essay-headline">
-            A one-line brief becomes a composed scene in four steps —
-            three of them are an agent talking to itself.
-          </h2>
-        </header>
-
-        <section class="step" data-step="01">
-          <p class="step-eyebrow">Nº 01 — the brief</p>
-          <h3 class="step-headline">Sara typed one line.</h3>
-          <p class="step-body">
-            No 3D vocabulary. No measurements. No SKUs. Just the corner she wished
-            Mia could sink into.
-          </p>
-          <blockquote class="step-quote">
-            Mia wants a quiet reading nook by the window — mid-century vibes,
-            warm tones. An armchair she can sink into, a tall reading lamp, a
-            little footstool, and her current books in a stack on the floor.
-          </blockquote>
-        </section>
-
-        <section class="step" data-step="02">
-          <p class="step-eyebrow">Nº 02 — the decomposition</p>
-          <h3 class="step-headline">An agent rewrote the brief as a parts list.</h3>
-          <p class="step-body">
-            Four slots, each with a generation-ready prompt. The agent picked
-            every word below.
-          </p>
-          <ol class="step-parts">
-            <li>
-              <code>armchair</code>
-              <span>a comfortable mid-century modern armchair, warm tan leather upholstery, dark walnut wood frame and tapered legs</span>
-            </li>
-            <li>
-              <code>floor_lamp</code>
-              <span>a tall slim brass floor lamp with a cream fabric drum shade, vintage style</span>
-            </li>
-            <li>
-              <code>ottoman</code>
-              <span>a small round leather footstool with short wooden legs</span>
-            </li>
-            <li>
-              <code>book_stack</code>
-              <span>a small stack of three hardcover books, weathered red and forest-green and cream covers, gold lettering on spines</span>
-            </li>
-          </ol>
-        </section>
-
-        <section class="step" data-step="03">
-          <p class="step-eyebrow">Nº 03 — parallel generation</p>
-          <h3 class="step-headline">Lux3D made four objects at once.</h3>
-          <p class="step-body">
-            Each prompt went out concurrently. Each came back as a GLB plus a
-            small bag of PBR textures, then was repacked into a self-contained
-            mesh on the way through the pipeline.
-          </p>
-          <ul class="step-jobs">
-            <li><code>armchair</code><span>6m&nbsp;33s</span></li>
-            <li><code>floor_lamp</code><span>5m&nbsp;12s</span></li>
-            <li><code>ottoman</code><span>4m&nbsp;01s</span></li>
-            <li><code>book_stack</code><span>5m&nbsp;30s</span></li>
-          </ul>
-        </section>
-
-        <section class="step" data-step="04">
-          <p class="step-eyebrow">Nº 04 — spatial layout</p>
-          <h3 class="step-headline">An LLM placed each piece on the floor.</h3>
-          <p class="step-body">
-            It read the bounding boxes Lux3D produced and a table of typical
-            real-world heights. It chose a uniform scale per piece so an
-            armchair would read like an armchair next to a lamp that reads
-            like a lamp. Its short rationales:
-          </p>
-          <ul class="step-rationales">
-            <li>
-              <span class="step-r-slot">armchair</span>
-              Anchor at origin, turned ~30° to give the scene depth and let
-              the lamp peek over the back.
-            </li>
-            <li>
-              <span class="step-r-slot">floor_lamp</span>
-              Behind-right of the chair so the shade sits above shoulder height.
-            </li>
-            <li>
-              <span class="step-r-slot">ottoman</span>
-              In front of the chair as a footrest, ~0.85&nbsp;m forward of the
-              chair centre.
-            </li>
-            <li>
-              <span class="step-r-slot">book_stack</span>
-              On the floor to the left of the chair, slightly turned. Three
-              books high.
-            </li>
-          </ul>
-        </section>
-
-        <footer class="essay-foot">
-          <p>
-            Built as
-            <a href="https://github.com/ZicoZhou10/3d-incubators" target="_blank" rel="noreferrer">3d-incubators</a>
-            — open source · MIT · agent-driven the whole way down.
-          </p>
-        </footer>
-      </article>
+      <section id="compose" class="screen" data-active="true"></section>
+      <section id="rolling" class="screen" data-active="false"></section>
+      <section id="variants" class="screen" data-active="false"></section>
+      <section id="scene" class="screen scene-screen" data-active="false"></section>
     </main>
+
+    <div id="modal" class="modal" data-state="closed"></div>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

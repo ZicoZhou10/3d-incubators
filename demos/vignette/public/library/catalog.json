@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "packs": [
+    {
+      "id": "cozy",
+      "label": "Cozy Domestic",
+      "tagline": "mid-century · warm tones · quiet rooms",
+      "vibes": ["cozy", "domestic", "warm", "vintage", "mid-century"],
+      "rooms": ["reading nook", "bedroom corner", "study"],
+      "components": [
+        {
+          "id": "armchair",
+          "label": "Armchair",
+          "category": "seat",
+          "file": "/library/cozy/armchair.glb",
+          "prompt": "a comfortable mid-century modern armchair, warm tan leather upholstery, dark walnut wood frame and tapered legs",
+          "style": "photorealistic",
+          "realHeight": 0.95,
+          "bbox": {
+            "min": [-0.332, 0.0, -0.333],
+            "max": [0.333, 0.813, 0.425],
+            "size": [0.665, 0.813, 0.758],
+            "center": [0.0, 0.407, 0.046]
+          }
+        },
+        {
+          "id": "floor_lamp",
+          "label": "Floor Lamp",
+          "category": "light",
+          "file": "/library/cozy/floor_lamp.glb",
+          "prompt": "a tall slim brass floor lamp with a cream fabric drum shade, vintage style",
+          "style": "photorealistic",
+          "realHeight": 1.65,
+          "bbox": {
+            "min": [-0.143, 0.0, -0.198],
+            "max": [0.150, 1.146, 0.156],
+            "size": [0.294, 1.146, 0.354],
+            "center": [0.003, 0.573, -0.021]
+          }
+        },
+        {
+          "id": "ottoman",
+          "label": "Ottoman",
+          "category": "surface",
+          "file": "/library/cozy/ottoman.glb",
+          "prompt": "a small round leather footstool with short wooden legs",
+          "style": "photorealistic",
+          "realHeight": 0.42,
+          "bbox": {
+            "min": [-0.506, 0.0, -0.514],
+            "max": [0.514, 0.779, 0.506],
+            "size": [1.020, 0.779, 1.020],
+            "center": [0.004, 0.390, -0.004]
+          }
+        },
+        {
+          "id": "book_stack",
+          "label": "Book Stack",
+          "category": "decor",
+          "file": "/library/cozy/book_stack.glb",
+          "prompt": "a small stack of three hardcover books, weathered red and forest-green and cream covers, gold lettering on spines",
+          "style": "photorealistic",
+          "realHeight": 0.18,
+          "bbox": {
+            "min": [-0.431, 0.0, -0.329],
+            "max": [0.445, 0.615, 0.306],
+            "size": [0.876, 0.615, 0.635],
+            "center": [0.007, 0.307, -0.011]
+          }
+        }
+      ]
+    },
+    {
+      "id": "cyberpunk",
+      "label": "Cyberpunk Apartment",
+      "tagline": "neon · dystopian · hacker den",
+      "vibes": ["cyberpunk", "sci-fi", "neon", "dystopian", "industrial"],
+      "rooms": ["hideout", "hacker den", "workstation", "apartment"],
+      "components": [
+        {
+          "id": "neon_floor_lamp",
+          "label": "Neon Floor Lamp",
+          "category": "light",
+          "file": "/library/cyberpunk/neon_floor_lamp.glb",
+          "prompt": "a tall slim cyberpunk floor lamp wrapped with glowing hot-pink neon tubing, brushed steel base, exposed cables snaking up the post",
+          "style": "cyberpunk",
+          "realHeight": 1.65,
+          "bbox": {
+            "min": [-0.128, 0.0, -0.120],
+            "max": [0.135, 1.149, 0.134],
+            "size": [0.263, 1.149, 0.254],
+            "center": [0.003, 0.574, 0.007]
+          }
+        },
+        {
+          "id": "holo_monitor_stack",
+          "label": "Holo Monitor Stack",
+          "category": "work",
+          "file": "/library/cyberpunk/holo_monitor_stack.glb",
+          "prompt": "three computer monitors stacked vertically on a black metal desk mount, screens glowing electric blue with code, cyberpunk dystopian aesthetic",
+          "style": "cyberpunk",
+          "realHeight": 1.0,
+          "bbox": {
+            "min": [-0.252, 0.0, -0.215],
+            "max": [0.236, 1.045, 0.247],
+            "size": [0.489, 1.045, 0.462],
+            "center": [-0.008, 0.522, 0.016]
+          }
+        }
+      ]
+    }
+  ]
+}
