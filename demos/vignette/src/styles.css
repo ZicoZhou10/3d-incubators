@@ -329,6 +329,23 @@ pre.error {
   margin-top: 20px;
   max-width: 64ch;
 }
+.rolling-note {
+  margin: 28px 0 0;
+  font-size: 13px;
+  color: var(--ink-3);
+  max-width: 52ch;
+  line-height: 1.5;
+}
+.link-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent-2);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.link-btn:hover { color: var(--ink); }
 
 /* ============================== variants screen ============================== */
 .variants-head {
@@ -641,3 +658,98 @@ pre.error {
 }
 .modal-foot a { color: var(--accent-2); text-decoration: none; }
 .modal-foot a:hover { text-decoration: underline; }
+
+/* ============================== calibration panel ============================== */
+.calib {
+  position: fixed;
+  top: 72px;
+  left: 24px;
+  width: 360px;
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+  z-index: 30;
+  background: var(--panel);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+}
+.calib-head h3 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 18px;
+  margin: 0 0 4px;
+}
+.calib-pack { color: var(--accent-2); font-family: var(--mono); font-size: 13px; }
+.calib-head p { margin: 0 0 12px; font-size: 12px; color: var(--ink-3); line-height: 1.45; }
+.calib-row { display: flex; gap: 8px; margin: 10px 0; align-items: center; }
+.calib-row .modal-input { flex: 1; }
+.calib-status { font-family: var(--mono); font-size: 11px; color: var(--ink-3); min-height: 14px; }
+.calib-sliders { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+.calib-slider { display: grid; grid-template-columns: 72px 1fr 64px; align-items: center; gap: 8px; }
+.calib-slider-label { font-family: var(--mono); font-size: 11px; color: var(--ink-2); }
+.calib-slider input[type="range"] { width: 100%; accent-color: var(--accent); }
+.calib-slider-val { font-family: var(--mono); font-size: 11px; color: var(--ink-3); text-align: right; }
+.calib-json {
+  background: #0a0a0e;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  padding: 10px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--accent-2);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.calib-foot { margin: 10px 0 0; font-size: 11px; font-family: var(--mono); }
+.calib-foot a { color: var(--ink-3); }
+
+/* layout editor reuses .calib; wider + a component list */
+.calib-wide { width: 380px; }
+.editor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 10px 0;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  padding: 6px;
+}
+.editor-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 4px;
+  border-radius: 6px;
+}
+.editor-row.is-sel { background: var(--bg-3); }
+.editor-inc { accent-color: var(--accent-2); }
+.editor-name {
+  flex: 1;
+  background: none;
+  border: 0;
+  text-align: left;
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.editor-name:hover { color: var(--ink); }
+.editor-row.is-sel .editor-name { color: var(--ink); }
+.editor-cat {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: var(--line);
+  color: var(--ink-3);
+  padding: 2px 5px;
+  border-radius: 4px;
+  min-width: 48px;
+  text-align: center;
+}

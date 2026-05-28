@@ -28,6 +28,14 @@ import {
   type Component,
 } from './library.js';
 import { generateVariants, type VariantLayout, type VariantSet, type Placement } from './llm.js';
+import { generateVariantsLocal } from './localLayout.js';
+import {
+  loadEnvironment,
+  loadSplatForCalibration,
+  applyTransform,
+  type EnvTransform,
+  type EnvHandle,
+} from './environment.js';
 import {
   readSceneFromUrl,
   writeSceneToUrl,
@@ -68,7 +76,7 @@ const view = mountViewer(stageEl, {
   cameraUp: [0, 1, 0],
   cameraPosition: [3, 1.5, 3],
   cameraTarget: [0, 0.5, 0],
-  splattingEnabled: false,
+  splattingEnabled: true, // needed for 3DGS environment shells; no-op when no splat
   orbit: { rotateSpeed: 0.0055, zoomSpeed: 0.0012, minDistance: 1, maxDistance: 15 },
 });
 setViewerConfig(view.viewer, {
@@ -120,6 +128,21 @@ async function boot(): Promise<void> {
   };
 
   renderApiKeyChip();
+
+  // Dev tool: ?calibrate=<packId> drops into the splat calibration panel.
+  const params = new URLSearchParams(location.search);
+  const calibratePack = params.get('calibrate');
+  if (calibratePack !== null) {
+    renderCalibration(calibratePack || state.catalog.packs[0]!.id);
+    return;
+  }
+  // Dev tool: ?layout=<packId> drops into the per-component layout editor.
+  const layoutPack = params.get('layout');
+  if (layoutPack !== null) {
+    void renderLayoutEditor(layoutPack || state.catalog.packs[0]!.id);
+    return;
+  }
+
   if (urlScene) {
     renderScene(urlScene);
   } else {
@@ -293,32 +316,55 @@ function composeBrief(c: ComposerState): string {
 
 // ---------- ROLLING screen ----------
 
+let rollCounter = 0;
+
 async function onRoll(rerollVariantNames?: string[]): Promise<void> {
   const apiKey = getApiKey();
-  if (!apiKey) {
-    openApiKeyModal();
-    return;
-  }
+  const useLocal = !apiKey;
   const brief = composeBrief(state.composer);
   setScreen('rolling');
   const rolling = $('rolling');
   rolling.innerHTML = `
     <div class="rolling">
-      <p class="eyebrow">step 02 / rolling</p>
+      <p class="eyebrow">step 02 / rolling${useLocal ? ' · local mode' : ' · anthropic'}</p>
       <h2 class="screen-title">Composing three variants…</h2>
       <p class="subtitle">${esc(brief)}</p>
       <ul class="rolling-dots"><li></li><li></li><li></li></ul>
+      ${
+        useLocal
+          ? `<p class="rolling-note">No API key — composing with the built-in local layout engine.
+             <button type="button" id="add-key-inline" class="link-btn">Add an Anthropic key</button>
+             for AI variants that read your refine text.</p>`
+          : ''
+      }
     </div>
   `;
+  if (useLocal) {
+    document.getElementById('add-key-inline')?.addEventListener('click', () => openApiKeyModal());
+  }
   try {
-    const variantSet = await generateVariants({
-      apiKey,
-      brief,
-      catalog: state.catalog,
-      packId: state.composer.packId,
-      pinned: state.composer.musthaves,
-      previousVariantNames: rerollVariantNames,
-    });
+    let variantSet: VariantSet;
+    if (useLocal) {
+      rollCounter++;
+      variantSet = generateVariantsLocal({
+        brief,
+        catalog: state.catalog,
+        packId: state.composer.packId,
+        pinned: state.composer.musthaves,
+        vibe: state.composer.vibes[0],
+        seed: Date.now() + rollCounter,
+      });
+      await wait(450); // let the rolling animation read as intentional
+    } else {
+      variantSet = await generateVariants({
+        apiKey: apiKey!,
+        brief,
+        catalog: state.catalog,
+        packId: state.composer.packId,
+        pinned: state.composer.musthaves,
+        previousVariantNames: rerollVariantNames,
+      });
+    }
     state.lastVariantSet = variantSet;
     renderVariants(variantSet);
   } catch (err) {
@@ -482,6 +528,7 @@ function renderSchematic(v: VariantLayout, pack: Pack): string {
 // ---------- SCENE screen ----------
 
 const loadedRoots: Map<string, Object3D> = new Map();
+let loadedEnv: EnvHandle | null = null;
 
 async function renderScene(layout: VariantLayout): Promise<void> {
   setScreen('scene');
@@ -515,11 +562,16 @@ async function renderScene(layout: VariantLayout): Promise<void> {
     </section>
   `;
 
+  await loadEnvironmentForPack(pack);
   await loadLayoutIntoViewer(layout, pack);
   renderSceneParts(layout, pack);
-  view.camera.position.set(...layout.camera.position);
-  view.camera.lookAt(new Vector3(...layout.camera.target));
-  view.orbit?.setTarget(...layout.camera.target);
+
+  // Camera: prefer the room's framing when there's an environment shell,
+  // otherwise the variant's own framing.
+  const cam = pack.environment?.camera ?? layout.camera;
+  view.camera.position.set(...cam.position);
+  view.camera.lookAt(new Vector3(...cam.target));
+  view.orbit?.setTarget(...cam.target);
 
   ($('share') as HTMLButtonElement).addEventListener('click', () => void onShare());
   $('reroll-set').addEventListener('click', () => void onRoll(state.lastVariantSet?.variants.map((v) => v.name)));
@@ -527,6 +579,26 @@ async function renderScene(layout: VariantLayout): Promise<void> {
   const back = document.getElementById('back-variants');
   if (back && state.lastVariantSet) {
     back.addEventListener('click', () => renderVariants(state.lastVariantSet!));
+  }
+}
+
+let loadedEnvPackId: string | null = null;
+
+async function loadEnvironmentForPack(pack: Pack): Promise<void> {
+  // The splat is heavy (~24 MB + a worker parse). Keep it across re-rolls and
+  // swaps within the same pack; only tear down when the pack actually changes.
+  if (loadedEnvPackId === pack.id && loadedEnv) return;
+  if (loadedEnv) {
+    loadedEnv.remove();
+    loadedEnv = null;
+    loadedEnvPackId = null;
+  }
+  if (!pack.environment) return;
+  try {
+    loadedEnv = await loadEnvironment(view, pack.environment);
+    loadedEnvPackId = pack.id;
+  } catch (err) {
+    console.error(`environment load (${pack.id}):`, err);
   }
 }
 
@@ -629,6 +701,414 @@ async function onShare(): Promise<void> {
   }
 }
 
+// ---------- Calibration (dev tool: ?calibrate=<packId>&splat=<url>) ----------
+//
+// Drag the splat into our metric Y-up frame using the reference props as a
+// ruler (neon lamp = 1.65 m). When the splat floor meets the props' bases and
+// the room reads life-size, hit "Copy JSON" and paste the transform + camera
+// into the pack's `environment` in catalog.json.
+
+interface CalibSliderDef {
+  key: string;
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  get: () => number;
+  set: (v: number) => void;
+  fmt?: (v: number) => string;
+}
+
+async function renderCalibration(packId: string): Promise<void> {
+  const pack = findPack(state.catalog, packId);
+  setScreen('scene'); // reuse scene screen so the stage canvas is visible
+  $('scene').innerHTML = '';
+
+  const params = new URLSearchParams(location.search);
+  const initialUrl = params.get('splat') ?? pack?.environment?.splatUrl ?? '';
+
+  const calib: EnvTransform = pack?.environment
+    ? {
+        position: [...pack.environment.transform.position],
+        rotation: [...pack.environment.transform.rotation],
+        scale: pack.environment.transform.scale,
+      }
+    : { position: [0, 0, 0], rotation: [0, 0, 0], scale: 1 };
+  const camTarget: [number, number, number] = pack?.environment?.camera.target ?? [0, 0.9, 0];
+  let splat: EnvHandle | null = null;
+
+  const sliders: CalibSliderDef[] = [
+    { key: 'rx', label: 'rot X', min: -3.15, max: 3.15, step: 0.01, get: () => calib.rotation[0], set: (v) => (calib.rotation[0] = v) },
+    { key: 'ry', label: 'rot Y', min: -3.15, max: 3.15, step: 0.01, get: () => calib.rotation[1], set: (v) => (calib.rotation[1] = v) },
+    { key: 'rz', label: 'rot Z', min: -3.15, max: 3.15, step: 0.01, get: () => calib.rotation[2], set: (v) => (calib.rotation[2] = v) },
+    {
+      key: 'sc', label: 'scale (log10)', min: -2, max: 1.4, step: 0.01,
+      get: () => Math.log10(calib.scale), set: (v) => (calib.scale = Math.pow(10, v)),
+      fmt: (v) => `×${Math.pow(10, v).toFixed(3)}`,
+    },
+    { key: 'px', label: 'pos X', min: -8, max: 8, step: 0.02, get: () => calib.position[0], set: (v) => (calib.position[0] = v) },
+    { key: 'py', label: 'pos Y', min: -8, max: 8, step: 0.02, get: () => calib.position[1], set: (v) => (calib.position[1] = v) },
+    { key: 'pz', label: 'pos Z', min: -8, max: 8, step: 0.02, get: () => calib.position[2], set: (v) => (calib.position[2] = v) },
+  ];
+
+  const panel = document.createElement('div');
+  panel.className = 'calib';
+  panel.innerHTML = `
+    <header class="calib-head">
+      <h3>Calibrate environment · <span class="calib-pack">${esc(packId)}</span></h3>
+      <p>Drag the splat onto the floor at life-size. Lamp = 1.65 m, crate ≈ 0.45 m.</p>
+    </header>
+    <div class="calib-row">
+      <input type="text" id="calib-url" class="modal-input" placeholder="splat URL (.spz/.ply/.sog)" value="${esc(initialUrl)}" />
+      <button type="button" id="calib-load" class="btn btn-primary">Load</button>
+    </div>
+    <div id="calib-status" class="calib-status"></div>
+    <div class="calib-sliders">
+      ${sliders
+        .map(
+          (s) => `
+        <label class="calib-slider">
+          <span class="calib-slider-label">${s.label}</span>
+          <input type="range" id="calib-${s.key}" min="${s.min}" max="${s.max}" step="${s.step}" value="${s.get()}" />
+          <span class="calib-slider-val" id="calib-${s.key}-val"></span>
+        </label>`
+        )
+        .join('')}
+    </div>
+    <div class="calib-row">
+      <button type="button" id="calib-reset" class="btn btn-ghost">Reset</button>
+      <button type="button" id="calib-capture" class="btn">Capture camera</button>
+      <button type="button" id="calib-copy" class="btn btn-primary">Copy JSON</button>
+    </div>
+    <pre id="calib-json" class="calib-json"></pre>
+    <p class="calib-foot"><a href="${esc(location.pathname)}">← exit calibration</a></p>
+  `;
+  document.body.appendChild(panel);
+
+  const refreshJson = (): void => {
+    const camPos: [number, number, number] = [
+      round3(view.camera.position.x),
+      round3(view.camera.position.y),
+      round3(view.camera.position.z),
+    ];
+    const out = {
+      splatUrl: ($('calib-url') as HTMLInputElement).value.trim(),
+      transform: {
+        position: calib.position.map(round3),
+        rotation: calib.rotation.map(round3),
+        scale: round3(calib.scale),
+      },
+      camera: { position: camPos, target: camTarget.map(round3) },
+    };
+    ($('calib-json') as HTMLElement).textContent = JSON.stringify(out, null, 2);
+  };
+
+  const applyAndRefresh = (): void => {
+    if (splat) applyTransform(splat.node, calib);
+    for (const s of sliders) {
+      const valEl = document.getElementById(`calib-${s.key}-val`);
+      if (valEl) valEl.textContent = s.fmt ? s.fmt(s.get()) : s.get().toFixed(2);
+    }
+    refreshJson();
+  };
+
+  for (const s of sliders) {
+    const input = $(`calib-${s.key}`) as HTMLInputElement;
+    input.addEventListener('input', () => {
+      s.set(parseFloat(input.value));
+      applyAndRefresh();
+    });
+  }
+
+  $('calib-load').addEventListener('click', () => void doLoad());
+  $('calib-reset').addEventListener('click', () => {
+    calib.position = [0, 0, 0];
+    calib.rotation = [0, 0, 0];
+    calib.scale = 1;
+    for (const s of sliders) ($(`calib-${s.key}`) as HTMLInputElement).value = String(s.get());
+    applyAndRefresh();
+  });
+  $('calib-capture').addEventListener('click', refreshJson);
+  $('calib-copy').addEventListener('click', () => {
+    void navigator.clipboard.writeText(($('calib-json') as HTMLElement).textContent ?? '');
+    ($('calib-copy') as HTMLElement).textContent = 'Copied';
+    setTimeout(() => (($('calib-copy') as HTMLElement).textContent = 'Copy JSON'), 1500);
+  });
+
+  // Reference props as a metric ruler.
+  await loadCalibrationRefs(pack);
+  view.camera.position.set(3, 1.6, 3.4);
+  view.orbit?.setTarget(...camTarget);
+
+  async function doLoad(): Promise<void> {
+    const url = ($('calib-url') as HTMLInputElement).value.trim();
+    const status = $('calib-status');
+    if (!url) {
+      status.textContent = 'enter a splat URL first';
+      return;
+    }
+    if (splat) {
+      splat.remove();
+      splat = null;
+    }
+    status.textContent = 'loading splat…';
+    try {
+      splat = await loadSplatForCalibration(view, url);
+      applyTransform(splat.node, calib);
+      status.textContent = 'loaded — drag the sliders';
+    } catch (err) {
+      status.textContent = `load failed: ${(err as Error).message}`;
+    }
+    applyAndRefresh();
+  }
+
+  applyAndRefresh();
+  if (initialUrl) void doLoad();
+}
+
+/** Load a couple of known-size props at the origin as a metric ruler. */
+async function loadCalibrationRefs(pack: Pack | undefined): Promise<void> {
+  if (!pack) return;
+  const refs = ['neon_floor_lamp', 'utility_crate', 'armchair', 'floor_lamp']
+    .map((id) => findComponent(pack, id))
+    .filter((c): c is Component => !!c)
+    .slice(0, 2);
+  let x = 0;
+  for (const comp of refs) {
+    try {
+      const handle = await loadGltfFromUrl(view, comp.file);
+      applyPlacement(handle.scene as Object3D, {
+        componentId: comp.id,
+        position: [x, 0, 0],
+        rotation: [0, 0, 0],
+        rationale: '',
+      }, comp);
+      loadedRoots.set(`__ref_${comp.id}`, handle.scene as Object3D);
+      x += 0.9;
+    } catch (err) {
+      console.error('ref load', comp.id, err);
+    }
+  }
+}
+
+function round3(n: number): number {
+  return Math.round(n * 1000) / 1000;
+}
+
+// ---------- Layout editor (dev tool: ?layout=<packId>) ----------
+//
+// Loads the calibrated room + every component, seeded from the auto-layout.
+// Select a piece, nudge its x/z/height/yaw with sliders, toggle pieces in/out,
+// then Copy JSON and paste the result into the pack's `curatedLayouts`.
+
+interface EditorItem {
+  comp: Component;
+  root: Object3D | null;
+  pos: [number, number, number];
+  rotY: number;
+  included: boolean;
+}
+
+function applyEditorItem(it: EditorItem): void {
+  if (!it.root) return;
+  const node = it.root as Object3D & {
+    position: { set: (x: number, y: number, z: number) => void };
+    rotation: { set: (x: number, y: number, z: number) => void };
+    scale: { set: (x: number, y: number, z: number) => void };
+  };
+  const s = uniformScale(it.comp);
+  node.scale.set(s, s, s);
+  if (it.included) {
+    node.position.set(it.pos[0], it.pos[1], it.pos[2]);
+    node.rotation.set(0, it.rotY, 0);
+  } else {
+    node.position.set(0, -1000, 0); // park offscreen
+  }
+}
+
+async function renderLayoutEditor(packId: string): Promise<void> {
+  const pack = findPack(state.catalog, packId);
+  if (!pack) {
+    showFatal(`pack ${packId} not found`);
+    return;
+  }
+  setScreen('scene');
+  $('scene').innerHTML = '';
+
+  await loadEnvironmentForPack(pack);
+
+  const items: EditorItem[] = pack.components.map((c) => ({
+    comp: c,
+    root: null,
+    pos: [0, 0, 0],
+    rotY: 0,
+    included: false,
+  }));
+
+  // Seed positions from the auto-layout (variant 0), so we nudge from a sane start.
+  try {
+    const auto = generateVariantsLocal({ brief: '', catalog: state.catalog, packId, pinned: [], seed: 1 });
+    for (const pl of auto.variants[0]?.components ?? []) {
+      const it = items.find((i) => i.comp.id === pl.componentId);
+      if (it) {
+        it.pos = [...pl.position];
+        it.rotY = pl.rotation[1];
+        it.included = true;
+      }
+    }
+  } catch {
+    /* defaults below */
+  }
+  let ring = 0.5;
+  for (const it of items) {
+    if (!it.included) {
+      it.pos = [Math.cos(ring) * 1.4, 0, Math.sin(ring) * 0.9];
+      ring += 1.3;
+    }
+  }
+
+  for (const it of items) {
+    try {
+      const h = await loadGltfFromUrl(view, it.comp.file);
+      it.root = h.scene as Object3D;
+      applyEditorItem(it);
+    } catch (err) {
+      console.error('editor load', it.comp.id, err);
+    }
+  }
+
+  const cam = pack.environment?.camera ?? { position: [3, 1.5, 3] as [number, number, number], target: [0, 1, 0] as [number, number, number] };
+  view.camera.position.set(...cam.position);
+  view.camera.lookAt(new Vector3(...cam.target));
+  view.orbit?.setTarget(...cam.target);
+
+  let selectedId: string | null = items.find((i) => i.included)?.comp.id ?? items[0]?.comp.id ?? null;
+
+  const panel = document.createElement('div');
+  panel.className = 'calib calib-wide';
+  document.body.appendChild(panel);
+
+  const buildJson = (): string => {
+    const layout = {
+      name: 'Authored',
+      narrative: 'Hand-placed in the layout editor.',
+      packId,
+      components: items
+        .filter((i) => i.included)
+        .map((i) => ({
+          componentId: i.comp.id,
+          position: i.pos.map(round3),
+          rotation: [0, round3(i.rotY), 0],
+          rationale: '',
+        })),
+      camera: {
+        position: [round3(view.camera.position.x), round3(view.camera.position.y), round3(view.camera.position.z)],
+        target: cam.target.map(round3),
+      },
+    };
+    return JSON.stringify(layout, null, 2);
+  };
+
+  const sliderDefs = (it: EditorItem): CalibSliderDef[] => [
+    { key: 'px', label: 'pos X', min: -4, max: 4, step: 0.02, get: () => it.pos[0], set: (v) => (it.pos[0] = v) },
+    { key: 'pz', label: 'pos Z', min: -3, max: 3, step: 0.02, get: () => it.pos[2], set: (v) => (it.pos[2] = v) },
+    { key: 'py', label: 'height', min: 0, max: 2.5, step: 0.02, get: () => it.pos[1], set: (v) => (it.pos[1] = v) },
+    { key: 'ry', label: 'yaw', min: -3.15, max: 3.15, step: 0.02, get: () => it.rotY, set: (v) => (it.rotY = v) },
+  ];
+
+  const renderPanel = (): void => {
+    const sel = items.find((i) => i.comp.id === selectedId);
+    panel.innerHTML = `
+      <header class="calib-head">
+        <h3>Layout editor · <span class="calib-pack">${esc(packId)}</span></h3>
+        <p>Tick a piece to include it, click its name to select, then nudge. Centre stays clear by you.</p>
+      </header>
+      <div class="editor-list" id="editor-list">
+        ${items
+          .map(
+            (it) => `
+          <div class="editor-row ${it.comp.id === selectedId ? 'is-sel' : ''}" data-id="${esc(it.comp.id)}">
+            <input type="checkbox" class="editor-inc" data-id="${esc(it.comp.id)}" ${it.included ? 'checked' : ''} />
+            <button type="button" class="editor-name" data-id="${esc(it.comp.id)}">
+              <span class="editor-cat">${esc(it.comp.category)}</span>${esc(it.comp.label)}
+            </button>
+          </div>`
+          )
+          .join('')}
+      </div>
+      <div class="calib-sliders" id="editor-sliders">
+        ${
+          sel
+            ? sliderDefs(sel)
+                .map(
+                  (s) => `
+          <label class="calib-slider">
+            <span class="calib-slider-label">${s.label}</span>
+            <input type="range" id="ed-${s.key}" min="${s.min}" max="${s.max}" step="${s.step}" value="${s.get()}" />
+            <span class="calib-slider-val" id="ed-${s.key}-val">${s.get().toFixed(2)}</span>
+          </label>`
+                )
+                .join('')
+            : '<p class="calib-status">select a piece</p>'
+        }
+      </div>
+      <div class="calib-row">
+        <button type="button" id="ed-capture" class="btn">Capture camera</button>
+        <button type="button" id="ed-copy" class="btn btn-primary">Copy JSON</button>
+      </div>
+      <pre id="ed-json" class="calib-json"></pre>
+      <p class="calib-foot"><a href="${esc(location.pathname)}">← exit editor</a></p>
+    `;
+
+    ($('ed-json') as HTMLElement).textContent = buildJson();
+
+    for (const cb of panel.querySelectorAll<HTMLInputElement>('.editor-inc')) {
+      cb.addEventListener('change', () => {
+        const it = items.find((i) => i.comp.id === cb.dataset.id);
+        if (!it) return;
+        it.included = cb.checked;
+        applyEditorItem(it);
+        ($('ed-json') as HTMLElement).textContent = buildJson();
+      });
+    }
+    for (const btn of panel.querySelectorAll<HTMLButtonElement>('.editor-name')) {
+      btn.addEventListener('click', () => {
+        selectedId = btn.dataset.id ?? null;
+        renderPanel();
+      });
+    }
+    if (sel) {
+      for (const s of sliderDefs(sel)) {
+        const input = document.getElementById(`ed-${s.key}`) as HTMLInputElement | null;
+        if (!input) continue;
+        input.addEventListener('input', () => {
+          s.set(parseFloat(input.value));
+          if (!sel.included) {
+            sel.included = true;
+            const cb = panel.querySelector<HTMLInputElement>(`.editor-inc[data-id="${sel.comp.id}"]`);
+            if (cb) cb.checked = true;
+          }
+          applyEditorItem(sel);
+          const valEl = document.getElementById(`ed-${s.key}-val`);
+          if (valEl) valEl.textContent = s.get().toFixed(2);
+          ($('ed-json') as HTMLElement).textContent = buildJson();
+        });
+      }
+    }
+    document.getElementById('ed-capture')?.addEventListener('click', () => {
+      ($('ed-json') as HTMLElement).textContent = buildJson();
+    });
+    document.getElementById('ed-copy')?.addEventListener('click', () => {
+      void navigator.clipboard.writeText(buildJson());
+      const b = $('ed-copy');
+      b.textContent = 'Copied';
+      setTimeout(() => (b.textContent = 'Copy JSON'), 1500);
+    });
+  };
+
+  renderPanel();
+}
+
 // ---------- screen switching ----------
 
 function setScreen(s: Screen): void {
@@ -645,7 +1125,7 @@ function renderApiKeyChip(): void {
   const chip = $('api-key-chip');
   const present = !!getApiKey();
   chip.dataset.present = present ? 'true' : 'false';
-  chip.textContent = present ? 'API key · set' : 'Set API key';
+  chip.textContent = present ? 'Anthropic · on' : 'Local mode · add key';
   chip.onclick = (): void => openApiKeyModal();
 }
 
@@ -659,8 +1139,10 @@ function openApiKeyModal(): void {
         <button type="button" class="modal-close" id="modal-close">×</button>
       </header>
       <p class="modal-body">
-        Diorama calls the Anthropic API from your browser to generate variant layouts.
-        Your key stays in this browser (localStorage) — it never reaches a server we run.
+        <strong>Optional.</strong> Diorama runs without a key using a built-in local layout
+        engine. Add an Anthropic key and it'll compose variants with the model instead —
+        smarter placement, and it reads your free-text refine box. Your key stays in this
+        browser (localStorage); it never reaches a server we run.
       </p>
       <input type="password" id="api-key-input" class="modal-input"
         placeholder="sk-ant-..." autocomplete="off"
@@ -709,6 +1191,10 @@ function esc(s: string): string {
   return s.replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!
   );
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((res) => window.setTimeout(res, ms));
 }
 
 // ---------- "edit brief" should not strand the URL hash ----------

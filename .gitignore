@@ -7,6 +7,10 @@ dist
 .env
 .env.local
 .env.*.local
+.dev.vars
+.tmp
+# unused spare environment splat (not referenced by catalog); regenerate via World API
+demos/vignette/public/library/cyberpunk/env/neon_solo_loft.spz
 .vercel
 .turbo
 .vite

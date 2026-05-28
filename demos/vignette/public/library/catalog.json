@@ -5,8 +5,18 @@
       "id": "cozy",
       "label": "Cozy Domestic",
       "tagline": "mid-century · warm tones · quiet rooms",
-      "vibes": ["cozy", "domestic", "warm", "vintage", "mid-century"],
-      "rooms": ["reading nook", "bedroom corner", "study"],
+      "vibes": [
+        "cozy",
+        "domestic",
+        "warm",
+        "vintage",
+        "mid-century"
+      ],
+      "rooms": [
+        "reading nook",
+        "bedroom corner",
+        "study"
+      ],
       "components": [
         {
           "id": "armchair",
@@ -17,10 +27,26 @@
           "style": "photorealistic",
           "realHeight": 0.95,
           "bbox": {
-            "min": [-0.332, 0.0, -0.333],
-            "max": [0.333, 0.813, 0.425],
-            "size": [0.665, 0.813, 0.758],
-            "center": [0.0, 0.407, 0.046]
+            "min": [
+              -0.332,
+              0.0,
+              -0.333
+            ],
+            "max": [
+              0.333,
+              0.813,
+              0.425
+            ],
+            "size": [
+              0.665,
+              0.813,
+              0.758
+            ],
+            "center": [
+              0.0,
+              0.407,
+              0.046
+            ]
           }
         },
         {
@@ -32,10 +58,26 @@
           "style": "photorealistic",
           "realHeight": 1.65,
           "bbox": {
-            "min": [-0.143, 0.0, -0.198],
-            "max": [0.150, 1.146, 0.156],
-            "size": [0.294, 1.146, 0.354],
-            "center": [0.003, 0.573, -0.021]
+            "min": [
+              -0.143,
+              0.0,
+              -0.198
+            ],
+            "max": [
+              0.15,
+              1.146,
+              0.156
+            ],
+            "size": [
+              0.294,
+              1.146,
+              0.354
+            ],
+            "center": [
+              0.003,
+              0.573,
+              -0.021
+            ]
           }
         },
         {
@@ -47,10 +89,26 @@
           "style": "photorealistic",
           "realHeight": 0.42,
           "bbox": {
-            "min": [-0.506, 0.0, -0.514],
-            "max": [0.514, 0.779, 0.506],
-            "size": [1.020, 0.779, 1.020],
-            "center": [0.004, 0.390, -0.004]
+            "min": [
+              -0.506,
+              0.0,
+              -0.514
+            ],
+            "max": [
+              0.514,
+              0.779,
+              0.506
+            ],
+            "size": [
+              1.02,
+              0.779,
+              1.02
+            ],
+            "center": [
+              0.004,
+              0.39,
+              -0.004
+            ]
           }
         },
         {
@@ -62,10 +120,26 @@
           "style": "photorealistic",
           "realHeight": 0.18,
           "bbox": {
-            "min": [-0.431, 0.0, -0.329],
-            "max": [0.445, 0.615, 0.306],
-            "size": [0.876, 0.615, 0.635],
-            "center": [0.007, 0.307, -0.011]
+            "min": [
+              -0.431,
+              0.0,
+              -0.329
+            ],
+            "max": [
+              0.445,
+              0.615,
+              0.306
+            ],
+            "size": [
+              0.876,
+              0.615,
+              0.635
+            ],
+            "center": [
+              0.007,
+              0.307,
+              -0.011
+            ]
           }
         }
       ]
@@ -74,8 +148,19 @@
       "id": "cyberpunk",
       "label": "Cyberpunk Apartment",
       "tagline": "neon · dystopian · hacker den",
-      "vibes": ["cyberpunk", "sci-fi", "neon", "dystopian", "industrial"],
-      "rooms": ["hideout", "hacker den", "workstation", "apartment"],
+      "vibes": [
+        "cyberpunk",
+        "sci-fi",
+        "neon",
+        "dystopian",
+        "industrial"
+      ],
+      "rooms": [
+        "hideout",
+        "hacker den",
+        "workstation",
+        "apartment"
+      ],
       "components": [
         {
           "id": "neon_floor_lamp",
@@ -86,10 +171,26 @@
           "style": "cyberpunk",
           "realHeight": 1.65,
           "bbox": {
-            "min": [-0.128, 0.0, -0.120],
-            "max": [0.135, 1.149, 0.134],
-            "size": [0.263, 1.149, 0.254],
-            "center": [0.003, 0.574, 0.007]
+            "min": [
+              -0.128,
+              0.0,
+              -0.12
+            ],
+            "max": [
+              0.135,
+              1.149,
+              0.134
+            ],
+            "size": [
+              0.263,
+              1.149,
+              0.254
+            ],
+            "center": [
+              0.003,
+              0.574,
+              0.007
+            ]
           }
         },
         {
@@ -101,13 +202,378 @@
           "style": "cyberpunk",
           "realHeight": 1.0,
           "bbox": {
-            "min": [-0.252, 0.0, -0.215],
-            "max": [0.236, 1.045, 0.247],
-            "size": [0.489, 1.045, 0.462],
-            "center": [-0.008, 0.522, 0.016]
+            "min": [
+              -0.252,
+              0.0,
+              -0.215
+            ],
+            "max": [
+              0.236,
+              1.045,
+              0.247
+            ],
+            "size": [
+              0.489,
+              1.045,
+              0.462
+            ],
+            "center": [
+              -0.008,
+              0.522,
+              0.016
+            ]
+          }
+        },
+        {
+          "id": "server_tower",
+          "label": "Server Tower",
+          "category": "work",
+          "file": "/library/cyberpunk/server_tower.glb",
+          "prompt": "a black computer tower PC case with glowing RGB fans, cyberpunk",
+          "style": "cyberpunk",
+          "realHeight": 0.5,
+          "bbox": {
+            "min": [
+              -0.215,
+              0.0,
+              -0.381
+            ],
+            "max": [
+              0.192,
+              0.884,
+              0.417
+            ],
+            "size": [
+              0.406,
+              0.884,
+              0.798
+            ],
+            "center": [
+              -0.011,
+              0.442,
+              0.018
+            ]
+          }
+        },
+        {
+          "id": "cybernetic_plant",
+          "label": "Cybernetic Plant",
+          "category": "decor",
+          "file": "/library/cyberpunk/cybernetic_plant.glb",
+          "prompt": "a small potted plant in a glossy chrome pot with blue LED lights, cyberpunk",
+          "style": "cyberpunk",
+          "realHeight": 0.6,
+          "bbox": {
+            "min": [
+              -0.338,
+              0.0,
+              -0.322
+            ],
+            "max": [
+              0.354,
+              1.085,
+              0.368
+            ],
+            "size": [
+              0.692,
+              1.085,
+              0.69
+            ],
+            "center": [
+              0.008,
+              0.542,
+              0.023
+            ]
+          }
+        },
+        {
+          "id": "instant_ramen_pile",
+          "label": "Instant Ramen Pile",
+          "category": "decor",
+          "file": "/library/cyberpunk/instant_ramen_pile.glb",
+          "prompt": "a neat stack of instant noodle cup containers, cyberpunk",
+          "style": "cyberpunk",
+          "realHeight": 0.25,
+          "bbox": {
+            "min": [
+              -0.312,
+              0.0,
+              -0.306
+            ],
+            "max": [
+              0.306,
+              1.066,
+              0.326
+            ],
+            "size": [
+              0.618,
+              1.066,
+              0.633
+            ],
+            "center": [
+              -0.003,
+              0.533,
+              0.01
+            ]
+          }
+        },
+        {
+          "id": "crashed_drone",
+          "label": "Crashed Drone",
+          "category": "decor",
+          "file": "/library/cyberpunk/crashed_drone.glb",
+          "prompt": "a damaged quadcopter drone with exposed circuit boards and one broken propeller, lying on its side, scuffed metal, cyberpunk",
+          "style": "cyberpunk",
+          "realHeight": 0.2,
+          "bbox": {
+            "min": [
+              -0.514,
+              0.0,
+              -0.509
+            ],
+            "max": [
+              0.49,
+              0.216,
+              0.479
+            ],
+            "size": [
+              1.004,
+              0.216,
+              0.988
+            ],
+            "center": [
+              -0.012,
+              0.108,
+              -0.015
+            ]
+          }
+        },
+        {
+          "id": "wall_panel_screen",
+          "label": "Wall Panel Screen",
+          "category": "decor",
+          "file": "/library/cyberpunk/wall_panel_screen.glb",
+          "prompt": "a chunky digital information display screen on a thick base stand, glowing blue, cyberpunk",
+          "style": "cyberpunk",
+          "realHeight": 0.6,
+          "bbox": {
+            "min": [
+              -0.406,
+              0.0,
+              -0.32
+            ],
+            "max": [
+              0.404,
+              0.985,
+              0.308
+            ],
+            "size": [
+              0.809,
+              0.985,
+              0.628
+            ],
+            "center": [
+              -0.001,
+              0.493,
+              -0.006
+            ]
+          }
+        },
+        {
+          "id": "utility_crate",
+          "label": "Utility Crate",
+          "category": "surface",
+          "file": "/library/cyberpunk/utility_crate.glb",
+          "prompt": "a rugged plastic storage crate, yellow and black industrial, cyberpunk",
+          "style": "cyberpunk",
+          "realHeight": 0.45,
+          "bbox": {
+            "min": [
+              -0.317,
+              0.0,
+              -0.443
+            ],
+            "max": [
+              0.308,
+              0.812,
+              0.429
+            ],
+            "size": [
+              0.626,
+              0.812,
+              0.872
+            ],
+            "center": [
+              -0.004,
+              0.406,
+              -0.007
+            ]
+          }
+        },
+        {
+          "id": "katana_stand",
+          "label": "Katana Stand",
+          "category": "decor",
+          "file": "/library/cyberpunk/katana_stand.glb",
+          "prompt": "a decorative blade resting on a wooden display stand with a glowing base, cyberpunk",
+          "style": "cyberpunk",
+          "realHeight": 0.42,
+          "bbox": {
+            "min": [
+              -0.539,
+              0.0,
+              -0.19
+            ],
+            "max": [
+              0.62,
+              0.416,
+              0.191
+            ],
+            "size": [
+              1.16,
+              0.416,
+              0.381
+            ],
+            "center": [
+              0.041,
+              0.208,
+              0.0
+            ]
+          }
+        },
+        {
+          "id": "desk",
+          "label": "Desk",
+          "category": "surface",
+          "file": "/library/cyberpunk/desk.glb",
+          "prompt": "a simple black metal computer desk, cyberpunk",
+          "style": "cyberpunk",
+          "realHeight": 0.75,
+          "bbox": {
+            "min": [
+              -0.439,
+              0.0,
+              -0.229
+            ],
+            "max": [
+              0.453,
+              0.762,
+              0.262
+            ],
+            "size": [
+              0.892,
+              0.762,
+              0.491
+            ],
+            "center": [
+              0.007,
+              0.381,
+              0.017
+            ]
+          }
+        },
+        {
+          "id": "office_chair",
+          "label": "Office Chair",
+          "category": "seat",
+          "file": "/library/cyberpunk/office_chair.glb",
+          "prompt": "a black office chair, cyberpunk",
+          "style": "cyberpunk",
+          "realHeight": 1.1,
+          "bbox": {
+            "min": [
+              -0.29,
+              0.0,
+              -0.224
+            ],
+            "max": [
+              0.295,
+              1.024,
+              0.359
+            ],
+            "size": [
+              0.585,
+              1.024,
+              0.583
+            ],
+            "center": [
+              0.003,
+              0.512,
+              0.068
+            ]
+          }
+        },
+        {
+          "id": "sofa",
+          "label": "Sofa",
+          "category": "seat",
+          "file": "/library/cyberpunk/sofa.glb",
+          "prompt": "a low modern dark grey sofa, cyberpunk",
+          "style": "cyberpunk",
+          "realHeight": 0.8,
+          "bbox": {
+            "min": [
+              -0.243,
+              0.0,
+              -0.542
+            ],
+            "max": [
+              0.27,
+              0.483,
+              0.524
+            ],
+            "size": [
+              0.513,
+              0.483,
+              1.066
+            ],
+            "center": [
+              0.013,
+              0.242,
+              -0.009
+            ]
           }
         }
-      ]
+      ],
+      "environment": {
+        "splatUrl": "/library/cyberpunk/env/neon_void_apartment.spz",
+        "transform": {
+          "position": [
+            3.284,
+            1.867,
+            0.334
+          ],
+          "rotation": [
+            -1.5708,
+            0,
+            0
+          ],
+          "scale": 2.4
+        },
+        "camera": {
+          "position": [
+            3.507,
+            1.223,
+            0.774
+          ],
+          "target": [
+            0,
+            1,
+            0
+          ]
+        },
+        "roomManifest": {
+          "floor": {
+            "xMin": -1.5,
+            "xMax": 1.5,
+            "zMin": -0.7,
+            "zMax": 0.7
+          },
+          "deskWall": "xMin",
+          "loungeWall": "zMax",
+          "margin": 0.3
+        }
+      }
     }
   ]
 }
